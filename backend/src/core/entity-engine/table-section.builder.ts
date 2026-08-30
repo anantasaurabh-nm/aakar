@@ -31,12 +31,12 @@ const METADATA_COLUMNS: TableColumn[] = [
  */
 export function columnsFromSchema(entity: EntityDefinition): TableColumn[] {
   const fieldColumns: TableColumn[] = Object.entries(entity.fields)
-    .filter(([, f]) => !f.internal && f.listVisible)
+    .filter(([, f]) => !f.internal && f.listVisible !== false)
     .map(([key, f]) => ({
       key,
       label: f.label ?? key,
       type: toColumnType(f.type),
-      sortable: f.sortable,
+      sortable: f.sortable !== false,
     }));
   return [...fieldColumns, ...METADATA_COLUMNS];
 }

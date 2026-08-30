@@ -32,17 +32,22 @@ function buildSchema(fields: SDUIFormField[]) {
 
 export interface DynamicFormProps {
   config: FormConfig;
+  initialValues?: Record<string, unknown>;
   onCancel: () => void;
   onSuccess: (invalidates: string[]) => void;
+  hideButtons?: boolean;
+  formId?: string;
 }
 
 /** SDUI -> DynamicForm -> React Hook Form -> Zod -> API action (stack.md §9). */
-export function DynamicForm({ config, onCancel, onSuccess }: DynamicFormProps) {
+export function DynamicForm({ config, initialValues, onCancel, onSuccess, hideButtons = false, formId }: DynamicFormProps) {
   const [serverError, setServerError] = useState<string | null>(null);
   const pushToast = useUiStore((s) => s.pushToast);
   const schema = buildSchema(config.fields);
 
-  const defaultValues = Object.fromEntries(config.fields.map((f) => [f.name, f.defaultValue ?? '']));
+  const defaultValues = Object.fromEntries(
+    config.fields.map((f) => [f.name, initialValues?.[f.name] ?? f.defaultValue ?? '']),
+  );
 
   const {
     register,
@@ -63,7 +68,7 @@ export function DynamicForm({ config, onCancel, onSuccess }: DynamicFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} noValidate>
+    <form id={formId} onSubmit={handleSubmit(onSubmit)} noValidate>
       {config.fields
         .filter((f) => f.type !== 'hidden')
         .map((field) => (
@@ -94,31 +99,33 @@ export function DynamicForm({ config, onCancel, onSuccess }: DynamicFormProps) {
         </div>
       )}
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
-        <button
-          type="button"
-          onClick={onCancel}
-          style={{ padding: '10px 18px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', fontWeight: 600, cursor: 'pointer' }}
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          style={{
-            padding: '10px 18px',
-            borderRadius: 8,
-            border: 'none',
-            background: 'var(--accent-indigo-dark)',
-            color: '#fff',
-            fontWeight: 600,
-            cursor: isSubmitting ? 'default' : 'pointer',
-            opacity: isSubmitting ? 0.7 : 1,
-          }}
-        >
-          {isSubmitting ? 'Saving…' : 'Save'}
-        </button>
-      </div>
+      {!hideButtons && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
+          <button
+            type="button"
+            onClick={onCancel}
+            style={{ padding: '10px 18px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', fontWeight: 600, cursor: 'pointer' }}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            style={{
+              padding: '10px 18px',
+              borderRadius: 8,
+              border: 'none',
+              background: 'var(--accent-indigo-dark)',
+              color: '#fff',
+              fontWeight: 600,
+              cursor: isSubmitting ? 'default' : 'pointer',
+              opacity: isSubmitting ? 0.7 : 1,
+            }}
+          >
+            {isSubmitting ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      )}
     </form>
   );
 }

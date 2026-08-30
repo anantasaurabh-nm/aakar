@@ -97,47 +97,35 @@ export function Toolbar({ items, filters, onFilterChange, search, onSearchChange
             if (!item.field) return null;
             const value = filters[item.field] ?? String(item.defaultValue ?? '');
             const options = item.options ?? [];
-            if (options.length <= 5) {
-              return (
-                <div key={item.id} style={{ display: 'inline-flex', gap: 4, background: 'var(--surface-2)', borderRadius: 8, padding: 3 }}>
-                  {options.map((opt) => {
-                    const active = value === opt.value;
-                    return (
-                      <button
-                        key={opt.value}
-                        onClick={() => onFilterChange(item.field!, opt.value)}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: 6,
-                          border: 'none',
-                          fontSize: 12.5,
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          background: active ? 'var(--accent-indigo)' : 'transparent',
-                          color: active ? '#fff' : 'var(--text-secondary)',
-                        }}
-                      >
-                        {opt.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              );
-            }
             return (
-              <select
-                key={item.id}
-                value={value}
-                onChange={(e) => onFilterChange(item.field!, e.target.value)}
-                style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 13 }}
-              >
-                <option value="">All</option>
-                {options.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+              <div key={item.id} style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+                <select
+                  value={value}
+                  onChange={(e) => onFilterChange(item.field!, e.target.value)}
+                  style={{
+                    padding: '7px 28px 7px 12px',
+                    borderRadius: 8,
+                    border: '1px solid var(--border)',
+                    background: 'var(--surface-2)',
+                    color: 'var(--text-primary)',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    appearance: 'none',
+                    outline: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <option value="">Show: All</option>
+                  {options.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <span style={{ position: 'absolute', right: 10, pointerEvents: 'none', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center' }}>
+                  ▾
+                </span>
+              </div>
             );
           }
 

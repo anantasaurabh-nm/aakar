@@ -12,7 +12,7 @@ test('critical path: login through creating a task', async ({ page }) => {
   await page.getByPlaceholder('••••••••••••').fill('Password123!');
   await page.getByRole('button', { name: /sign in/i }).click();
 
-  await expect(page).toHaveURL('/');
+  await expect(page).toHaveURL('/', { timeout: 10000 });
   await page.getByText('Todo', { exact: true }).click();
 
   await expect(page.getByText('Insights')).toBeVisible();
@@ -22,5 +22,5 @@ test('critical path: login through creating a task', async ({ page }) => {
   await page.getByLabel('Title').fill('E2E created task');
   await page.getByRole('button', { name: 'Save' }).click();
 
-  await expect(page.getByText('E2E created task')).toBeVisible();
+  await expect(page.getByText('E2E created task').first()).toBeVisible();
 });

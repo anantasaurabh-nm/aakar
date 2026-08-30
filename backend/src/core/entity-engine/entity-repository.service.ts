@@ -35,10 +35,10 @@ export function operatorToSql(column: Prisma.Sql, operator: ColumnFilter['operat
 
 /** Entity-agnostic — operates purely on the five fixed RecordStatus values (Module System PRD v2 §9). */
 const ALLOWED_TRANSITIONS: Record<RecordStatus, RecordStatus[]> = {
-  draft: ['submitted', 'approved', 'cancelled', 'deleted'],
-  submitted: ['approved', 'cancelled', 'deleted'],
-  approved: ['cancelled', 'deleted'],
-  cancelled: ['deleted'],
+  draft: ['submitted', 'cancelled'],
+  submitted: ['approved', 'cancelled'],
+  approved: ['cancelled'],
+  cancelled: ['draft', 'deleted'],
   deleted: [],
 };
 

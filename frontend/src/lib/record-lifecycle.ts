@@ -13,28 +13,33 @@ export interface StatusActions {
 }
 
 /**
- * UI-only default record lifecycle (finetune-1 §3.2) — a convenience for
- * deciding which buttons to show. The backend's own `ALLOWED_TRANSITIONS`
- * (entity-repository.service.ts) is the actual authority and re-validates
- * every transition regardless of what this table says.
+ * UI default record lifecycle (finetune-1 §3.2 & DoersOS Default Workflow):
+ * - Draft: editable, Next -> Submitted or Cancelled. (Delete is NOT allowed directly).
+ * - Submitted: editable, Next -> Approved or Cancelled.
+ * - Approved: read-only, Next -> Cancelled.
+ * - Cancelled: read-only, Next -> Deleted or Draft (Reopen).
+ * - Deleted: read-only, terminal state.
+ *
+ * Backend ALLOWED_TRANSITIONS (entity-repository.service.ts) is the authority.
  */
 export const LIFECYCLE: Record<RecordStatus, StatusActions> = {
   draft: {
     canEdit: true,
     forward: { label: 'Submit', to: 'submitted' },
-    sideActions: [{ label: 'Delete', to: 'deleted', confirm: true }],
+    sideActions: [{ label: 'Cancel', to: 'cancelled', confirm: true }],
   },
   submitted: {
     canEdit: true,
     forward: { label: 'Approve', to: 'approved' },
-    sideActions: [{ label: 'Delete', to: 'deleted', confirm: true }],
+    sideActions: [{ label: 'Cancel', to: 'cancelled', confirm: true }],
   },
   approved: {
     canEdit: false,
-    sideActions: [{ label: 'Cancel Record', to: 'cancelled' }],
+    sideActions: [{ label: 'Cancel', to: 'cancelled', confirm: true }],
   },
   cancelled: {
     canEdit: false,
+    forward: { label: 'Reopen as Draft', to: 'draft' },
     sideActions: [{ label: 'Delete', to: 'deleted', confirm: true }],
   },
   deleted: {
@@ -47,9 +52,9 @@ export function lifecycleFor(status: string | undefined): StatusActions {
   return LIFECYCLE[(status as RecordStatus) ?? 'draft'] ?? LIFECYCLE.draft;
 }
 
-/** Action-registry target suffix for each transition — note "approved" reuses the existing `.complete` target name, not `.approve`. */
+/** Action-registry target suffix for each transition */
 export const TRANSITION_TARGET_SUFFIX: Record<RecordStatus, string> = {
-  draft: 'submit',
+  draft: 'reopen',
   submitted: 'submit',
   approved: 'complete',
   cancelled: 'cancel',

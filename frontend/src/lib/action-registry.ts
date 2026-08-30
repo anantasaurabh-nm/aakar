@@ -39,6 +39,8 @@ const REGISTRY: Record<string, SubmitTarget> = {
   },
   'todo.task.submit': transitionTarget('todo/task', 'submitted', ['todo.task', 'todo.task.insights']),
   'todo.task.cancel': transitionTarget('todo/task', 'cancelled', ['todo.task', 'todo.task.insights']),
+  'todo.task.reopen': transitionTarget('todo/task', 'draft', ['todo.task', 'todo.task.insights']),
+  'todo.task.draft': transitionTarget('todo/task', 'draft', ['todo.task', 'todo.task.insights']),
   'todo.task.delete': {
     invalidates: ['todo.task', 'todo.task.insights'],
     execute: (values) => apiClient.delete(`actions/todo/task/${values.id}`),

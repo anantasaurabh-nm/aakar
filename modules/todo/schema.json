@@ -27,7 +27,9 @@
         "category": {
           "type": "string",
           "label": "Category",
-          "default": "General"
+          "default": "General",
+          "sortable": true,
+          "searchable": true
         },
         "origin_module": {
           "type": "string",
