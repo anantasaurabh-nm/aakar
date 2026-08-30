@@ -1,0 +1,188 @@
+// Core schema: platform/tenancy, RBAC, module registry, audit log, and AI
+// model configuration. Module-owned business entity tables (Task, and any
+// future schema-driven entity) are intentionally NOT modeled here — they're
+// created and queried at runtime by the entity engine
+// (backend/src/core/entity-engine) from each module's schema.json, via raw
+// parameterized SQL through this same Prisma client's $queryRaw/$executeRaw.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Platform / tenancy
+// ---------------------------------------------------------------------------
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users     User[]
+  auditLogs AuditLog[]
+
+  @@map("tenants")
+}
+
+enum Role {
+  SUPER_ADMIN
+  TENANT_ADMIN
+  MANAGER
+  STAFF
+  VIEWER
+}
+
+model User {
+  id           String    @id @default(cuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id])
+  email        String    @unique
+  username     String    @unique
+  passwordHash String
+  role         Role      @default(STAFF)
+  isActive     Boolean   @default(true)
+  avatarUrl    String?
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  auditLogs    AuditLog[]
+
+  // Module-owned tables (e.g. todo_task.created_by) reference this id via a
+  // plain scalar column with no @relation, since those tables aren't Prisma
+  // models — referential integrity for those columns is an
+  // application-level concern.
+
+  @@index([tenantId])
+  @@map("users")
+}
+
+// Role -> permission grants. Data-driven so the entity engine can grant
+// newly-generated module permissions without a code deploy (RBAC PRD rule:
+// "Roles/groups are managed by the platform/RBAC system").
+model RolePermission {
+  id         String @id @default(cuid())
+  role       Role
+  permission String
+
+  @@unique([role, permission])
+  @@map("role_permissions")
+}
+
+// ---------------------------------------------------------------------------
+// Module registry (Module System PRD v2 §34)
+// ---------------------------------------------------------------------------
+
+enum ModuleType {
+  native
+  connector
+  hybrid
+}
+
+// discovered = manifest found on disk but not yet installed.
+enum ModuleRegistryStatus {
+  discovered
+  installed
+  enabled
+  disabled
+}
+
+model ModuleRegistryEntry {
+  id          String                @id // module.json "id"
+  name        String
+  version     String
+  description String?
+  type        ModuleType
+  surfaces    String[]
+  status      ModuleRegistryStatus  @default(enabled)
+  icon        String                @default("app")
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  @@map("module_registry")
+}
+
+// ---------------------------------------------------------------------------
+// Standard business-record lifecycle (Module System PRD v2 §8-9) — shared by
+// every schema-driven business entity.
+// ---------------------------------------------------------------------------
+
+enum RecordStatus {
+  draft
+  submitted
+  approved
+  cancelled
+  deleted
+}
+
+// ---------------------------------------------------------------------------
+// Audit log — append-only (Module System PRD v2 §41)
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  entity      String
+  recordId    String
+  action      String
+  fromStatus  RecordStatus?
+  toStatus    RecordStatus?
+  performedBy String?
+  performedByUser User? @relation(fields: [performedBy], references: [id], onDelete: SetNull)
+  performedAt DateTime @default(now())
+  reason      String?
+  metadata    Json?
+
+  @@index([tenantId, entity, recordId])
+  @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// AI model configuration (AI Models PRD)
+// ---------------------------------------------------------------------------
+
+enum ModelProfileName {
+  light
+  reasoning
+}
+
+enum ProviderId {
+  openai
+  gemini
+  openrouter
+  together
+  anthropic
+  nvidia
+}
+
+// Server-side-only credential store. Values are encrypted at rest with
+// CREDENTIAL_ENCRYPTION_KEY; never returned to clients (AI Models PRD §9-10).
+model Credential {
+  name           String   @id
+  provider       ProviderId
+  encryptedValue String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("credentials")
+}
+
+model AiModelProfile {
+  profile      ModelProfileName @id
+  provider     ProviderId
+  model        String
+  credentialName String?
+  timeoutMs    Int      @default(30000)
+  updatedAt    DateTime @updatedAt
+  updatedBy    String?
+
+  @@map("ai_model_profiles")
+}

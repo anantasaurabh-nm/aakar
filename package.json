@@ -1,0 +1,25 @@
+{
+  "name": "doers-os",
+  "private": true,
+  "version": "1.0.0",
+  "description": "DoersOS - modular ERP platform",
+  "workspaces": [
+    "packages/*",
+    "backend",
+    "frontend"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build:contracts": "npm run build -w @erp/shared-contracts",
+    "dev:backend": "npm run start:dev -w @erp/backend",
+    "dev:frontend": "npm run dev -w @erp/frontend",
+    "build:backend": "npm run build -w @erp/backend",
+    "build:frontend": "npm run build -w @erp/frontend",
+    "prisma:generate": "npm run prisma:generate -w @erp/backend",
+    "prisma:migrate": "npm run prisma:migrate -w @erp/backend",
+    "prisma:seed": "npm run prisma:seed -w @erp/backend",
+    "test": "npm run test -w @erp/frontend --if-present && npm run test -w @erp/backend --if-present"
+  }
+}

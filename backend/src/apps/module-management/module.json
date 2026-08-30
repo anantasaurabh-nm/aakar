@@ -1,0 +1,8 @@
+{
+  "id": "module-management",
+  "name": "Module Management",
+  "version": "1.0.0",
+  "description": "Enable, disable and inspect installed modules",
+  "type": "native",
+  "surfaces": ["admin"]
+}

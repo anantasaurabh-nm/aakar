@@ -1,0 +1,128 @@
+:root {
+  --header-height: 64px;
+
+  --bg: #f3f4f7;
+  --surface: #ffffff;
+  --surface-2: #f8f9fb;
+  --border: #e5e7eb;
+  --border-subtle: rgba(15, 23, 42, 0.08);
+
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+  --text-tertiary: #94a3b8;
+
+  --accent-indigo: #6366f1;
+  --accent-indigo-dark: #1e1b4b;
+  --accent-pink: #ec4899;
+  --accent-emerald: #10b981;
+  --accent-amber: #f59e0b;
+  --accent-cyan: #06b6d4;
+  --accent-red: #ef4444;
+
+  --badge-primary-bg: rgba(99, 102, 241, 0.12);
+  --badge-primary-text: #4338ca;
+  --badge-primary-border: rgba(99, 102, 241, 0.3);
+  --badge-success-bg: rgba(16, 185, 129, 0.12);
+  --badge-success-text: #047857;
+  --badge-success-border: rgba(16, 185, 129, 0.3);
+  --badge-warning-bg: rgba(245, 158, 11, 0.12);
+  --badge-warning-text: #b45309;
+  --badge-warning-border: rgba(245, 158, 11, 0.3);
+
+  --divider-bg: rgba(255, 255, 255, 0.95);
+
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.12);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #0b0e17;
+    --surface: #131722;
+    --surface-2: #171c29;
+    --border: #232838;
+    --border-subtle: rgba(255, 255, 255, 0.08);
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-tertiary: #64748b;
+    --divider-bg: rgba(12, 16, 28, 0.95);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --bg: #0b0e17;
+  --surface: #131722;
+  --surface-2: #171c29;
+  --border: #232838;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
+  --divider-bg: rgba(12, 16, 28, 0.95);
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+a {
+  color: inherit;
+}
+
+button {
+  font-family: inherit;
+}
+
+/* Apps grid glassmorphism (finetune-1 §1.1) — kept in real CSS rather than
+   inline styles solely for the :hover lift, which inline styles can't express. */
+.app-card {
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.app-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .app-card {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+}
+:root[data-theme='dark'] .app-card {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 8px;
+}

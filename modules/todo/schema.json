@@ -1,0 +1,51 @@
+{
+  "entities": {
+    "task": {
+      "label": "Task",
+      "fields": {
+        "title": {
+          "type": "string",
+          "label": "Title",
+          "required": true,
+          "sortable": true,
+          "searchable": true
+        },
+        "description": {
+          "type": "text",
+          "label": "Description",
+          "searchable": true,
+          "listVisible": false
+        },
+        "priority": {
+          "type": "select",
+          "label": "Priority",
+          "options": ["LOW", "MEDIUM", "HIGH", "URGENT"],
+          "default": "MEDIUM",
+          "required": true,
+          "sortable": true
+        },
+        "category": {
+          "type": "string",
+          "label": "Category",
+          "default": "General"
+        },
+        "origin_module": {
+          "type": "string",
+          "label": "Origin",
+          "internal": true,
+          "default": "todo"
+        },
+        "origin_entity_type": {
+          "type": "string",
+          "internal": true,
+          "listVisible": false
+        },
+        "origin_record_id": {
+          "type": "string",
+          "internal": true,
+          "listVisible": false
+        }
+      }
+    }
+  }
+}

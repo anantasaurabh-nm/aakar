@@ -1,0 +1,13 @@
+{
+  "id": "user-management",
+  "name": "User Management",
+  "version": "1.0.0",
+  "description": "Manage platform users, roles and access",
+  "type": "native",
+  "surfaces": ["admin"],
+  "permissions": "permissions.json",
+  "ui": {
+    "pages": "ui/pages",
+    "views": "ui/views"
+  }
+}

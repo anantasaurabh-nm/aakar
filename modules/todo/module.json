@@ -1,0 +1,8 @@
+{
+  "id": "todo",
+  "name": "Todo",
+  "version": "1.0.0",
+  "description": "Tasks, due dates, priorities and completion",
+  "type": "native",
+  "surfaces": ["app"]
+}

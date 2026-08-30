@@ -1,0 +1,8 @@
+{
+  "permissions": [
+    { "id": "user.read", "description": "View users" },
+    { "id": "user.create", "description": "Create users" },
+    { "id": "user.update", "description": "Update users" },
+    { "id": "user.delete", "description": "Deactivate users" }
+  ]
+}
