@@ -20,9 +20,6 @@ const REGISTRY: Record<string, DataSourceFn> = {
   'users.insights': () => apiClient.get('data/users/insights'),
 
   modules: () => apiClient.get('data/modules'),
-
-  'ai.models': () => apiClient.get('data/admin/ai-configuration/models'),
-  'ai.connections': () => apiClient.get('data/admin/ai-configuration/connections'),
 };
 
 export class UnknownDataSourceError extends Error {

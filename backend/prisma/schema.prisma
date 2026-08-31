@@ -163,26 +163,33 @@ enum ProviderId {
   nvidia
 }
 
-// Server-side-only credential store. Values are encrypted at rest with
-// CREDENTIAL_ENCRYPTION_KEY; never returned to clients (AI Models PRD §9-10).
-model Credential {
-  name           String   @id
-  provider       ProviderId
-  encryptedValue String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  @@map("credentials")
+// active | fallback per AI Models PRD §16 (Model Fallback); disabled = a spare
+// config not currently wired to anything. Deliberately NOT the generic
+// entity-engine RecordStatus (draft/submitted/approved/cancelled/deleted) —
+// that lifecycle has no meaning for platform-level AI configuration (§30).
+enum AiModelConfigStatus {
+  active
+  fallback
+  disabled
 }
 
-model AiModelProfile {
-  profile      ModelProfileName @id
-  provider     ProviderId
-  model        String
-  credentialName String?
-  timeoutMs    Int      @default(30000)
-  updatedAt    DateTime @updatedAt
-  updatedBy    String?
+// A collection of provider/model/key configs — not a fixed one-per-profile
+// record. At most one `active` and one `fallback` config per profile is
+// enforced in application code (ai-configuration.controller.ts), not here.
+// Each owns its own API key directly (no separate named-connection
+// indirection) — encrypted at rest with CREDENTIAL_ENCRYPTION_KEY and never
+// returned to clients (AI Models PRD §9-10).
+model AiModelConfig {
+  id              String               @id @default(cuid())
+  provider        ProviderId
+  model           String
+  encryptedApiKey String
+  profile         ModelProfileName?
+  status          AiModelConfigStatus  @default(disabled)
+  timeoutMs       Int                  @default(30000)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  updatedBy       String?
 
-  @@map("ai_model_profiles")
+  @@map("ai_model_configs")
 }

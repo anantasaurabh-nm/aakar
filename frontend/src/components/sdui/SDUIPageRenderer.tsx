@@ -2,6 +2,7 @@
 
 import { validateSDUIResponse } from '@erp/shared-contracts';
 import { AppShell } from '@/components/shell/AppShell';
+import { useUiStore } from '@/lib/ui-store';
 import { SectionRotator } from './SectionRotator';
 import { SDUISectionRenderer } from './SDUISectionRenderer';
 
@@ -14,14 +15,17 @@ export function SDUIPageRenderer({
   isLoading: boolean;
   isError: boolean;
 }) {
-  if (isLoading) {
+  const copilotPage = useUiStore((s) => s.copilotPage);
+
+  if (!copilotPage && isLoading) {
     return <FullPageMessage>Loading…</FullPageMessage>;
   }
-  if (isError) {
+  if (!copilotPage && isError) {
     return <FullPageMessage>Something went wrong loading this page.</FullPageMessage>;
   }
 
-  const result = validateSDUIResponse(raw);
+  const activeRaw = copilotPage ?? raw;
+  const result = validateSDUIResponse(activeRaw);
   if (!result.ok) {
     return <FullPageMessage>This page couldn't be displayed ({result.reason}).</FullPageMessage>;
   }

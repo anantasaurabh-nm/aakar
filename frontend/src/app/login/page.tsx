@@ -61,10 +61,12 @@ export default function LoginPage() {
         style={{
           width: '100%',
           maxWidth: 440,
-          background: 'var(--surface)',
+          background: 'var(--glass-bg)',
+          backdropFilter: 'blur(24px)',
+          WebkitBackdropFilter: 'blur(24px)',
           borderRadius: 'var(--radius-lg)',
           boxShadow: 'var(--shadow-lg)',
-          border: '1px solid var(--border)',
+          border: '1px solid var(--glass-border)',
           padding: '40px 36px',
         }}
       >

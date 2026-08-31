@@ -15,10 +15,21 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'transparent', overflow: 'hidden' }}>
       <Header brand={brand} navigation={navigation} />
-      {children}
-      <AIChatPanel />
+      <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        <main
+          style={{
+            flex: 1,
+            minWidth: 0,
+            height: '100%',
+            overflow: 'hidden',
+          }}
+        >
+          {children}
+        </main>
+        <AIChatPanel />
+      </div>
       <ToastHost />
     </div>
   );

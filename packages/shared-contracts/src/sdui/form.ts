@@ -11,6 +11,7 @@ export const FieldTypeSchema = z.enum([
   'checkbox',
   'switch',
   'tags',
+  'password',
   'hidden',
 ]);
 export type FieldType = z.infer<typeof FieldTypeSchema>;
@@ -33,6 +34,14 @@ export const FormFieldSchema = z.object({
   helpText: z.string().optional(),
   min: z.number().optional(),
   max: z.number().optional(),
+  /**
+   * A write-only value (e.g. an API key). The server never sends the real
+   * value back — `defaultValue` is always empty and `placeholder` carries
+   * the "already configured" hint instead. Left blank on submit means
+   * "keep the existing value," so the client omits it from the request
+   * body entirely rather than sending an empty string.
+   */
+  secret: z.boolean().default(false),
 });
 export type SDUIFormField = z.infer<typeof FormFieldSchema>;
 

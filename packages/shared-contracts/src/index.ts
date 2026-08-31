@@ -3,6 +3,7 @@ export * from './sdui/toolbar';
 export * from './sdui/dashboard';
 export * from './sdui/table';
 export * from './sdui/form';
+export * from './sdui/settings';
 export * from './sdui/section';
 export * from './sdui/page';
 

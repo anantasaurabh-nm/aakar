@@ -23,6 +23,12 @@ describe('classifyWithRules', () => {
     expect(decision?.parameters.title).toContain('call the customer');
   });
 
+  it('routes generic "create a new todo" to create capability without inserting the command as title', () => {
+    const decision = classifyWithRules('create a new todo', CAPABILITIES);
+    expect(decision?.capability).toBe('todo.task.create');
+    expect(decision?.parameters.title).toBeUndefined();
+  });
+
   it('routes completion phrasing to the complete capability', () => {
     const decision = classifyWithRules('Mark the customer call as done', CAPABILITIES);
     expect(decision?.capability).toBe('todo.task.complete');
@@ -37,6 +43,36 @@ describe('classifyWithRules', () => {
   it('falls back to the list capability for unrecognized phrasing', () => {
     const decision = classifyWithRules('asdkjhaskjdh random gibberish', CAPABILITIES);
     expect(decision?.capability).toBe('todo.task.list');
+  });
+
+  it('routes "show only high priority todos" to list capability with priority HIGH', () => {
+    const decision = classifyWithRules('show only high priority todos', CAPABILITIES);
+    expect(decision?.capability).toBe('todo.task.list');
+    expect(decision?.parameters.priority).toBe('HIGH');
+  });
+
+  it('routes "approved todos" to list capability with status approved', () => {
+    const decision = classifyWithRules('approved todos', CAPABILITIES);
+    expect(decision?.capability).toBe('todo.task.list');
+    expect(decision?.parameters.status).toBe('approved');
+  });
+
+  it('routes "todos from general cat" to list capability with category General', () => {
+    const decision = classifyWithRules('todos from general cat', CAPABILITIES);
+    expect(decision?.capability).toBe('todo.task.list');
+    expect(decision?.parameters.category).toBe('General');
+  });
+
+  it('routes "category = enginnering" with typo to list capability with category Engineering', () => {
+    const decision = classifyWithRules('category = enginnering', CAPABILITIES);
+    expect(decision?.capability).toBe('todo.task.list');
+    expect(decision?.parameters.category).toBe('Engineering');
+  });
+
+  it('routes "all records" to list capability with empty parameters (cleared filters)', () => {
+    const decision = classifyWithRules('all records', CAPABILITIES);
+    expect(decision?.capability).toBe('todo.task.list');
+    expect(Object.keys(decision?.parameters ?? {})).toHaveLength(0);
   });
 
   it('returns null when no capabilities are registered', () => {

@@ -72,17 +72,20 @@ const REGISTRY: Record<string, SubmitTarget> = {
     execute: (values) => apiClient.post(`actions/modules/${values.id}/install`),
   },
 
-  'ai.model.save': {
-    invalidates: ['ai.models'],
-    execute: (values) => apiClient.put(`actions/ai-configuration/models/${values.profile}`, omit(values, ['profile'])),
+  // Settings groups don't use the 'ds' data-source cache (values are inlined
+  // in the SDUI page response) — SettingsView invalidates the `ui` query
+  // namespace directly on success instead, so `invalidates` is unused here.
+  'ai.model-config.create': {
+    invalidates: [],
+    execute: (values) => apiClient.post('actions/ai-model-configs', omit(values, ['id'])),
   },
-  'ai.connection.save': {
-    invalidates: ['ai.connections', 'ai.models'],
-    execute: (values) => apiClient.put(`actions/ai-configuration/connections/${values.name}`, omit(values, ['name'])),
+  'ai.model-config.update': {
+    invalidates: [],
+    execute: (values) => apiClient.put(`actions/ai-model-configs/${values.id}`, omit(values, ['id'])),
   },
-  'ai.connection.delete': {
-    invalidates: ['ai.connections'],
-    execute: (values) => apiClient.delete(`actions/ai-configuration/connections/${values.name}`),
+  'ai.model-config.delete': {
+    invalidates: [],
+    execute: (values) => apiClient.delete(`actions/ai-model-configs/${values.id}`),
   },
 };
 

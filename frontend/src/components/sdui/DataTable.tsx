@@ -310,18 +310,50 @@ export function DataTable({ section }: { section: TableSection }) {
   const [moduleId, entityKey]: [string | undefined, string | undefined] =
     isDetailView && section.data?.source ? (section.data.source.split('.') as [string, string]) : [undefined, undefined];
 
-  const [filters, setFilters] = useState<Record<string, string>>({});
-  const [search, setSearch] = useState('');
+  const initialColumnFilters = (section.state as Record<string, unknown> | undefined)?.columnFilters as ColumnFilter[] | undefined;
+  const initialSectionFilters = (section.state as Record<string, unknown> | undefined)?.filters as Record<string, string> | undefined;
+  const initialSearch = (section.state as Record<string, unknown> | undefined)?.search as string | undefined;
+
+  const [filters, setFilters] = useState<Record<string, string>>(initialSectionFilters ?? {});
+  const [search, setSearch] = useState(initialSearch ?? '');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(section.config.pageSize || 10);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
   const [formState, setFormState] = useState<{ open: boolean; section?: Record<string, unknown> }>({ open: false });
 
-  const [viewState, setViewState] = useState<{ mode: 'list' } | { mode: 'record'; recordId?: string }>({ mode: 'list' });
+  const initialRecordId = (section.state as Record<string, unknown> | undefined)?.initialRecordId as string | undefined;
+  const [viewState, setViewState] = useState<{ mode: 'list' } | { mode: 'record'; recordId?: string; startInEditMode?: boolean }>(() => {
+    if (initialRecordId) {
+      return { mode: 'record', recordId: initialRecordId, startInEditMode: true };
+    }
+    return { mode: 'list' };
+  });
+
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [columnFilters, setColumnFilters] = useState<ColumnFilter[]>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFilter[]>(initialColumnFilters ?? []);
   const [view, setView] = useState<'table' | 'card'>('table');
+
+  useEffect(() => {
+    const s = section.state as Record<string, unknown> | undefined;
+    if (s) {
+      if (s.initialRecordId) {
+        setViewState({ mode: 'record', recordId: String(s.initialRecordId), startInEditMode: true });
+      } else {
+        setViewState({ mode: 'list' });
+      }
+      if (s.columnFilters !== undefined) {
+        setColumnFilters(Array.isArray(s.columnFilters) ? (s.columnFilters as ColumnFilter[]) : []);
+      }
+      if (s.filters !== undefined) {
+        setFilters((s.filters as Record<string, string>) || {});
+      }
+      if (s.search !== undefined) {
+        setSearch(String(s.search));
+      }
+      setPage(1);
+    }
+  }, [section]);
 
   // Popover menus
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
@@ -364,32 +396,44 @@ export function DataTable({ section }: { section: TableSection }) {
   const hasDataSource = Boolean(section.data?.source);
   const sortState = sorting[0];
   const queryParams = {
+    ...(section.data?.params ?? {}),
     ...filters,
     search: search || undefined,
     page,
     pageSize,
     ...(sortState ? { sortBy: sortState.id, sortDir: sortState.desc ? 'desc' : 'asc' } : {}),
-    ...(columnFilters.length > 0 ? { filters: JSON.stringify(columnFilters) } : {}),
+    filters: columnFilters.length > 0 ? JSON.stringify(columnFilters) : undefined,
   };
+  const stateRows = section.state?.rows as Record<string, unknown>[] | undefined;
+  const stateTotal = (section.state as Record<string, unknown> | undefined)?.total as number | undefined;
   const queryKey = ['ds', section.data?.source, queryParams];
 
   const { data, isLoading, isError } = useQuery({
     queryKey,
     queryFn: async () => {
-      const result = await fetchDataSource(section.data!.source, { ...section.data?.params, ...queryParams });
+      const result = await fetchDataSource(section.data!.source, queryParams);
       if (Array.isArray(result)) {
         return { items: result, page: 1, pageSize: result.length, total: result.length } satisfies Paginated;
       }
       return result as Paginated;
     },
     enabled: hasDataSource,
+    initialData:
+      stateRows && page === 1 && !sortState && columnFilters.length === (((section.state as Record<string, unknown> | undefined)?.columnFilters as unknown[] | undefined)?.length ?? 0)
+        ? {
+          items: stateRows,
+          page: 1,
+          pageSize,
+          total: stateTotal ?? stateRows.length,
+        }
+        : undefined,
     placeholderData: (previousData) => previousData,
   });
 
   const rows: Record<string, unknown>[] = hasDataSource
-    ? (data?.items ?? [])
-    : ((section.state?.rows as Record<string, unknown>[] | undefined) ?? []);
-  const total = hasDataSource ? (data?.total ?? 0) : rows.length;
+    ? (data?.items ?? stateRows ?? [])
+    : (stateRows ?? []);
+  const total = hasDataSource ? (data?.total ?? stateTotal ?? 0) : (stateTotal ?? rows.length);
 
   const visibleColumns = section.config.columns.filter((c) => !hiddenColumns.has(c.key));
 
@@ -544,6 +588,7 @@ export function DataTable({ section }: { section: TableSection }) {
         module={moduleId}
         entity={entityKey}
         recordId={viewState.recordId}
+        startInEditMode={viewState.startInEditMode}
         onClose={() => setViewState({ mode: 'list' })}
       />
     );
@@ -559,9 +604,9 @@ export function DataTable({ section }: { section: TableSection }) {
           justifyContent: 'space-between',
           flexWrap: 'wrap',
           gap: 12,
-          padding: '12px 20px',
-          borderBottom: '1px solid var(--border)',
-          background: 'var(--surface)',
+          padding: '4px 12px 0 12px',
+          borderBottom: '0px solid var(--border)',
+          background: 'transparent',
         }}
       >
         {/* Left Side: New button, Status Dropdown, other actions, and Search */}
@@ -1056,7 +1101,7 @@ export function DataTable({ section }: { section: TableSection }) {
       </div>
 
       {/* Main Table Surface */}
-      <div style={{ padding: '16px 20px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ padding: '4px 8px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div
           style={{
             background: 'var(--surface)',

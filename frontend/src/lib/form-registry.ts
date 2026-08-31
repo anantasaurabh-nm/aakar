@@ -8,8 +8,6 @@ import { apiClient, buildQuery } from './api-client';
 const REGISTRY: Record<string, string> = {
   'todo.task.form': 'ui/views/todo/task/form',
   'user.form': 'ui/views/user-management/user-form',
-  'ai.model.form': 'ui/views/ai-configuration/model-form',
-  'ai.connection.form': 'ui/views/ai-configuration/connection-form',
 };
 
 export class UnknownFormTargetError extends Error {

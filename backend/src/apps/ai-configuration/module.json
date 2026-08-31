@@ -2,7 +2,7 @@
   "id": "ai-configuration",
   "name": "AI Configuration",
   "version": "1.0.0",
-  "description": "Configure AI model profiles and provider connections",
+  "description": "Configure AI model profiles, providers, and API keys",
   "type": "native",
   "surfaces": ["admin"]
 }

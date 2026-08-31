@@ -36,11 +36,13 @@ export interface DynamicFormProps {
   onCancel: () => void;
   onSuccess: (invalidates: string[]) => void;
   hideButtons?: boolean;
+  /** Hides just the Cancel button (e.g. a Settings group has nothing to cancel back to) while keeping Save. */
+  hideCancel?: boolean;
   formId?: string;
 }
 
 /** SDUI -> DynamicForm -> React Hook Form -> Zod -> API action (stack.md §9). */
-export function DynamicForm({ config, initialValues, onCancel, onSuccess, hideButtons = false, formId }: DynamicFormProps) {
+export function DynamicForm({ config, initialValues, onCancel, onSuccess, hideButtons = false, hideCancel = false, formId }: DynamicFormProps) {
   const [serverError, setServerError] = useState<string | null>(null);
   const pushToast = useUiStore((s) => s.pushToast);
   const schema = buildSchema(config.fields);
@@ -59,7 +61,13 @@ export function DynamicForm({ config, initialValues, onCancel, onSuccess, hideBu
     setServerError(null);
     try {
       const target = getSubmitTarget(config.submitAction.target);
-      await target.execute(values);
+      // A blank secret field means "keep the existing value" — omit it
+      // entirely rather than sending an empty string that would erase it.
+      const payload = { ...values };
+      for (const field of config.fields) {
+        if (field.secret && !payload[field.name]) delete payload[field.name];
+      }
+      await target.execute(payload);
       pushToast('Saved successfully.');
       onSuccess(target.invalidates);
     } catch (err) {
@@ -101,13 +109,15 @@ export function DynamicForm({ config, initialValues, onCancel, onSuccess, hideBu
 
       {!hideButtons && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
-          <button
-            type="button"
-            onClick={onCancel}
-            style={{ padding: '10px 18px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', fontWeight: 600, cursor: 'pointer' }}
-          >
-            Cancel
-          </button>
+          {!hideCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              style={{ padding: '10px 18px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', fontWeight: 600, cursor: 'pointer' }}
+            >
+              Cancel
+            </button>
+          )}
           <button
             type="submit"
             disabled={isSubmitting}
@@ -163,6 +173,17 @@ export function FieldInput({ field, register }: { field: SDUIFormField; register
       return <input id={field.name} type="datetime-local" style={baseStyle} {...register(field.name)} />;
     case 'number':
       return <input id={field.name} type="number" style={baseStyle} {...register(field.name)} />;
+    case 'password':
+      return (
+        <input
+          id={field.name}
+          type="password"
+          autoComplete="new-password"
+          placeholder={field.placeholder}
+          style={baseStyle}
+          {...register(field.name)}
+        />
+      );
     default:
       return <input id={field.name} type="text" placeholder={field.placeholder} style={baseStyle} {...register(field.name)} />;
   }

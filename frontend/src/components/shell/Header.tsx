@@ -11,28 +11,36 @@ export function Header({ brand, navigation }: { brand: SDUIBrand; navigation: SD
   const router = useRouter();
   const setAiPanelOpen = useUiStore((s) => s.setAiPanelOpen);
   const aiPanelOpen = useUiStore((s) => s.aiPanelOpen);
+  const setCopilotPage = useUiStore((s) => s.setCopilotPage);
   const Icon = resolveIcon(brand.icon);
 
   return (
     <header
       style={{
+        position: 'relative',
+        zIndex: 50,
         height: 'var(--header-height)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: '0 20px',
-        background: 'var(--surface)',
+        background: 'var(--glass-bg)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
         borderBottom: '1px solid var(--border)',
         gap: 16,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
         <div
-          onClick={() => router.push('/')}
+          onClick={() => {
+            setCopilotPage(null);
+            router.push('/');
+          }}
           style={{
-            width: 36,
-            height: 36,
-            borderRadius: 10,
+            width: 26,
+            height: 26,
+            borderRadius: 4,
             background: 'var(--accent-indigo-dark)',
             color: '#fff',
             display: 'flex',
@@ -68,15 +76,18 @@ export function Header({ brand, navigation }: { brand: SDUIBrand; navigation: SD
         )}
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
         <div style={{ position: 'relative', display: 'none' }}>
           <Search size={14} />
         </div>
-        <IconButton label="Notifications" onClick={() => {}}>
+        <IconButton label="Notifications" onClick={() => { }}>
           <Bell size={17} />
         </IconButton>
-        <IconButton label="Compose" onClick={() => {}}>
+        <IconButton label="Compose" onClick={() => { }}>
           <PenSquare size={17} />
+        </IconButton>
+        <IconButton label="Settings" onClick={() => { }}>
+          <Settings size={17} />
         </IconButton>
         <button
           onClick={() => setAiPanelOpen(!aiPanelOpen)}
@@ -84,21 +95,19 @@ export function Header({ brand, navigation }: { brand: SDUIBrand; navigation: SD
           style={{
             width: 34,
             height: 34,
-            borderRadius: '50%',
-            border: 'none',
+            borderRadius: '4px',
+            border: aiPanelOpen ? '1px solid rgb(from var(--accent-indigo) r g b / 0.25)' : '1px solid transparent',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            background: aiPanelOpen ? 'var(--accent-indigo)' : 'linear-gradient(135deg, rgba(236,72,153,0.18), rgba(99,102,241,0.18))',
-            color: aiPanelOpen ? '#fff' : 'var(--accent-indigo)',
+            background: aiPanelOpen ? 'rgb(from var(--accent-indigo) r g b / 0.15)' : 'transparent',
+            color: aiPanelOpen ? 'var(--accent-indigo)' : 'var(--accent-indigo)',
           }}
         >
           <Sparkles size={17} />
         </button>
-        <IconButton label="Settings" onClick={() => {}}>
-          <Settings size={17} />
-        </IconButton>
+
         <UserMenu />
       </div>
     </header>

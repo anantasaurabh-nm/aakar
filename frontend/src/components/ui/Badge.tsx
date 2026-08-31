@@ -31,6 +31,9 @@ const VALUE_TONES: Record<string, Tone> = {
   native: 'primary',
   connector: 'accent',
   hybrid: 'success',
+  Active: 'success',
+  Fallback: 'warning',
+  Disabled: 'neutral',
 };
 
 export function Badge({ children, tone }: { children: React.ReactNode; tone?: Tone }) {

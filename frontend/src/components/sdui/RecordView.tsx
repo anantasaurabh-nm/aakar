@@ -10,6 +10,7 @@ import { lifecycleFor, TRANSITION_TARGET_SUFFIX, type RecordStatus } from '@/lib
 import { DynamicForm, FieldDisplay } from './DynamicForm';
 import { Badge } from '@/components/ui/Badge';
 import { useUiStore } from '@/lib/ui-store';
+import { transform } from 'zod/v4';
 
 interface FormSectionResponse {
   label: string;
@@ -47,17 +48,19 @@ export function RecordView({
   module,
   entity,
   recordId,
+  startInEditMode = false,
   onClose,
 }: {
   module: string;
   entity: string;
   recordId?: string;
+  startInEditMode?: boolean;
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
   const pushToast = useUiStore((s) => s.pushToast);
   const isNew = !recordId;
-  const [editing, setEditing] = useState(isNew);
+  const [editing, setEditing] = useState(isNew || startInEditMode);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -114,9 +117,9 @@ export function RecordView({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '12px 20px',
-          borderBottom: '1px solid var(--border)',
-          background: 'var(--surface)',
+          padding: '4px 12px 0px 12px',
+          borderBottom: '0px solid var(--border)',
+          background: 'transparent',
         }}
       >
         {/* Left: Back arrow icon & Edit/Save button */}
@@ -127,7 +130,7 @@ export function RecordView({
             type="button"
             onClick={(e) => {
               e.preventDefault();
-              if (editing && !isNew) {
+              if (editing && !isNew && !startInEditMode) {
                 setEditing(false);
               } else {
                 onClose();
@@ -188,6 +191,7 @@ export function RecordView({
                   setEditing(true);
                 }}
                 style={{
+
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 6,
@@ -212,7 +216,7 @@ export function RecordView({
 
         {/* Right: Status badge & Status Change Button with Dropdown */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {!isNew && status && <Badge tone={getStatusTone(status)}>{status}</Badge>}
+          {!isNew && status && <Badge tone={getStatusTone(status)}>{status.toUpperCase()}</Badge>}
 
           {!isNew && !editing && (
             <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }} ref={dropdownRef}>
@@ -368,14 +372,14 @@ export function RecordView({
       </div>
 
       {/* Body: Dynamic Form (when editing) or Field Values (when viewing) */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px', margin: '6px 12px' }} className="record-view-pane" >
         {editing ? (
           <DynamicForm
             formId="record-form"
             config={data.config}
             initialValues={data.record}
-            onCancel={() => (isNew ? onClose() : setEditing(false))}
-            onSuccess={(invalidates) => invalidateAndSettle(invalidates, isNew)}
+            onCancel={() => (isNew || startInEditMode ? onClose() : setEditing(false))}
+            onSuccess={(invalidates) => invalidateAndSettle(invalidates, isNew || startInEditMode)}
             hideButtons={true}
           />
         ) : (
@@ -404,6 +408,6 @@ export function RecordView({
           </div>
         )}
       </div>
-    </div>
+    </div >
   );
 }

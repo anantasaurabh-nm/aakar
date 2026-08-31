@@ -3,6 +3,7 @@ import { Dashboard } from './Dashboard';
 import { DataTable } from './DataTable';
 import { DynamicForm } from './DynamicForm';
 import { AppsGrid } from './AppsGrid';
+import { SettingsView } from './SettingsView';
 
 /**
  * Controlled section-type -> component registry (SDUI PRD §2, stack.md §3.2).
@@ -29,6 +30,8 @@ export function SDUISectionRenderer({ section }: { section: SDUISectionOrInvalid
           <DynamicForm config={section.config} onCancel={() => {}} onSuccess={() => {}} />
         </div>
       );
+    case 'settings':
+      return <SettingsView section={section} />;
     default:
       // Unknown section types fail safely instead of crashing the page.
       return (

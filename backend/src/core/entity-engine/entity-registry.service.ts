@@ -149,8 +149,62 @@ export class EntityRegistryService implements OnModuleInit {
   // --- capability handlers, also reused directly by EntityEngineController ---
 
   async executeList(moduleId: string, entityKey: string, entity: EntityDefinition, params: Record<string, unknown>, user: AuthenticatedUser) {
-    const page = await this.entityRepository.list(moduleId, entityKey, entity, user.tenantId, params as never);
-    return { module: moduleId, entity: entityKey, operation: 'list', rows: page.items, total: page.total };
+    const listFilters: import('./entity-repository.service').ListFilters = {
+      ...(typeof params.search === 'string' ? { search: params.search } : {}),
+      ...(typeof params.status === 'string' ? { status: params.status } : {}),
+      ...(typeof params.record_status === 'string' ? { status: params.record_status } : {}),
+      ...(typeof params.originModule === 'string' ? { originModule: params.originModule } : {}),
+      ...(typeof params.originRecordId === 'string' ? { originRecordId: params.originRecordId } : {}),
+      ...(typeof params.sortBy === 'string' ? { sortBy: params.sortBy } : {}),
+      ...(params.sortDir === 'asc' || params.sortDir === 'desc' ? { sortDir: params.sortDir } : {}),
+      ...(typeof params.page === 'number' ? { page: params.page } : {}),
+      ...(typeof params.pageSize === 'number' ? { pageSize: params.pageSize } : {}),
+    };
+
+    const recordDate = typeof params.recordDate === 'string' ? params.recordDate : undefined;
+    if (recordDate) {
+      const range = resolveRecordDateRange(recordDate);
+      if (range) {
+        listFilters.recordDateStart = range.start;
+        listFilters.recordDateEnd = range.end;
+      }
+    }
+
+    const rawColumnFilters: import('@erp/shared-contracts').ColumnFilter[] = Array.isArray(params.columnFilters) ? [...params.columnFilters] : [];
+    const columnFilters: import('@erp/shared-contracts').ColumnFilter[] = [];
+
+    for (const cf of rawColumnFilters) {
+      const field = entity.fields[cf.field];
+      if (!field || field.internal) continue;
+      let val = cf.value;
+      if (field.type === 'select' && Array.isArray(field.options) && typeof val === 'string') {
+        const strVal = val.toLowerCase();
+        const matchedOpt = field.options.find((opt) => opt.toLowerCase() === strVal);
+        if (matchedOpt) val = matchedOpt;
+      }
+      columnFilters.push({ field: cf.field, operator: cf.operator || 'eq', value: val });
+    }
+
+    for (const [key, field] of Object.entries(entity.fields)) {
+      if (field.internal) continue;
+      if (params[key] !== undefined && params[key] !== null && params[key] !== '') {
+        let val = params[key];
+        if (field.type === 'select' && Array.isArray(field.options) && typeof val === 'string') {
+          const matchedOpt = field.options.find((opt) => opt.toLowerCase() === (val as string).toLowerCase());
+          if (matchedOpt) val = matchedOpt;
+        }
+        if (!columnFilters.some((cf) => cf.field === key)) {
+          columnFilters.push({ field: key, operator: 'eq', value: val as string | number | boolean });
+        }
+      }
+    }
+
+    if (columnFilters.length > 0) {
+      listFilters.columnFilters = columnFilters;
+    }
+
+    const page = await this.entityRepository.list(moduleId, entityKey, entity, user.tenantId, listFilters);
+    return { module: moduleId, entity: entityKey, operation: 'list', rows: page.items, total: page.total, params: { ...params, columnFilters } };
   }
 
   async executeGet(moduleId: string, entityKey: string, params: Record<string, unknown>, user: AuthenticatedUser) {

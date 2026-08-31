@@ -78,9 +78,10 @@ export function formFieldsFromSchema(entity: EntityDefinition, existing?: Record
       required: f.required,
       defaultValue: existing?.[key] ?? f.default ?? '',
       options: f.options?.map((o) => ({ label: o, value: o })),
+      secret: false,
     }));
   return [
-    { name: 'id', label: 'id', type: 'hidden', required: false, defaultValue: existing?.id },
+    { name: 'id', label: 'id', type: 'hidden', required: false, defaultValue: existing?.id, secret: false },
     ...fields,
   ];
 }
@@ -132,18 +133,58 @@ export function buildTableSectionFromSchema(
   entityKey: string,
   entity: EntityDefinition,
   rows: Record<string, unknown>[],
+  total?: number,
+  params?: Record<string, unknown>,
 ) {
+  const rawColumnFilters = params?.columnFilters;
+  const initialColumnFilters = Array.isArray(rawColumnFilters) ? rawColumnFilters : [];
+  const initialFilters: Record<string, string> = {};
+  if (typeof params?.status === 'string') initialFilters.status = params.status;
+  if (typeof params?.recordDate === 'string') initialFilters.recordDate = params.recordDate;
+
   return {
     id: `ai-${moduleId}-${entityKey}-table`,
     label: entity.label ?? entityKey,
     type: 'table' as const,
-    toolbar: [],
-    state: { rows },
+    toolbar: [
+      { id: 'new', type: 'action' as const, label: 'New', action: { type: 'create' as const, target: `${moduleId}.${entityKey}.form` } },
+      { id: 'search', type: 'search' as const },
+      {
+        id: 'status',
+        type: 'filter' as const,
+        field: 'status',
+        options: [
+          { label: 'Draft', value: 'draft' },
+          { label: 'Submitted', value: 'submitted' },
+          { label: 'Approved', value: 'approved' },
+          { label: 'Cancelled', value: 'cancelled' },
+        ],
+      },
+      { id: 'columns', type: 'columns' as const },
+      { id: 'refresh', type: 'action' as const, label: 'Refresh', action: { type: 'refresh' as const } },
+    ],
+    data: {
+      source: `${moduleId}.${entityKey}`,
+      params: {
+        ...(typeof params?.status === 'string' ? { status: params.status } : {}),
+        ...(typeof params?.recordDate === 'string' ? { recordDate: params.recordDate } : {}),
+        ...(typeof params?.search === 'string' ? { search: params.search } : {}),
+        ...(initialColumnFilters.length > 0 ? { filters: JSON.stringify(initialColumnFilters) } : {}),
+      },
+    },
+    state: {
+      rows,
+      total: total ?? rows.length,
+      columnFilters: initialColumnFilters,
+      filters: initialFilters,
+      search: typeof params?.search === 'string' ? params.search : undefined,
+    },
     config: {
       columns: columnsFromSchema(entity),
-      selectable: false,
+      selectable: true,
       pageSize: 10,
       density: 'comfortable' as const,
+      detailView: true,
     },
   };
 }

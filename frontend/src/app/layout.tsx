@@ -1,7 +1,14 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import { Nunito } from 'next/font/google';
 import { AppQueryProvider } from '@/lib/query-provider';
 import './globals.css';
+
+const nunito = Nunito({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-nunito',
+});
 
 export const metadata: Metadata = {
   title: 'DoersOS',
@@ -19,11 +26,11 @@ try {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className={nunito.variable} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
-      <body>
+      <body className={nunito.className}>
         <AppQueryProvider>{children}</AppQueryProvider>
       </body>
     </html>

@@ -7,6 +7,7 @@ import { Search } from 'lucide-react';
 import type { ModuleDiscoveryEntry } from '@erp/shared-contracts';
 import { fetchDataSource } from '@/lib/data-source-registry';
 import { resolveIcon } from '@/lib/icon-registry';
+import { useUiStore } from '@/lib/ui-store';
 
 /**
  * Bespoke Home "Apps" presentation (finetune-1 §1) — not a DataTable
@@ -16,6 +17,7 @@ import { resolveIcon } from '@/lib/icon-registry';
  */
 export function AppsGrid() {
   const router = useRouter();
+  const setCopilotPage = useUiStore((s) => s.setCopilotPage);
   const [search, setSearch] = useState('');
 
   const { data, isLoading, isError } = useQuery({
@@ -32,8 +34,8 @@ export function AppsGrid() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '16px 20px 0' }}>
-        <div style={{ position: 'relative', width: 280 }}>
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 20px' }}>
+        <div style={{ position: 'relative', minWidth: 280, width: '50%' }}>
           <Search size={14} style={{ position: 'absolute', left: 10, top: 10, color: 'var(--text-tertiary)' }} />
           <input
             value={search}
@@ -52,7 +54,7 @@ export function AppsGrid() {
         </div>
       </div>
 
-      <div style={{ flex: 1, overflow: 'auto', padding: 20 }}>
+      <div style={{ flex: 1, overflow: 'auto', padding: '2px 8px 4px' }}>
         {isLoading && <div style={{ padding: 24, color: 'var(--text-secondary)' }}>Loading…</div>}
         {isError && <div style={{ padding: 24, color: 'var(--text-secondary)' }}>Couldn't load apps right now.</div>}
         {!isLoading && !isError && filtered.length === 0 && (
@@ -74,9 +76,15 @@ export function AppsGrid() {
                   className="app-card"
                   role="button"
                   tabIndex={0}
-                  onClick={() => router.push(`/app/${app.id}`)}
+                  onClick={() => {
+                    setCopilotPage(null);
+                    router.push(`/app/${app.id}`);
+                  }}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') router.push(`/app/${app.id}`);
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      setCopilotPage(null);
+                      router.push(`/app/${app.id}`);
+                    }
                   }}
                   style={{
                     borderRadius: 16,

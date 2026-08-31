@@ -31,6 +31,7 @@ export interface CapabilityResult {
   operation: string;
   rows?: Record<string, unknown>[];
   total?: number;
+  params?: Record<string, unknown>;
   message?: string;
   /** Data-source ids the client should invalidate/refetch after a mutation. */
   invalidates?: string[];

@@ -21,6 +21,7 @@ const REGISTRY: Record<string, LucideIcon> = {
   modules: Boxes,
   ai: Bot,
   app: AppWindow,
+  sparkles: Sparkles,
 };
 
 export function resolveIcon(key?: string): LucideIcon {

@@ -38,9 +38,9 @@ export function Toolbar({ items, filters, onFilterChange, search, onSearchChange
         flexWrap: 'wrap',
         alignItems: 'center',
         gap: 10,
-        padding: '12px 20px',
-        borderBottom: '1px solid var(--border)',
-        background: 'var(--surface)',
+        padding: '4px 12px 0 12px',
+        borderBottom: '0px solid var(--border)',
+        background: 'transparent',
       }}
     >
       {items.map((item) => {

@@ -7,7 +7,7 @@ const col = Prisma.raw('"priority"');
 describe('operatorToSql (dynamic column filters, finetune-1 §2.3)', () => {
   it('binds the filter value as a normal parameter, never splices it into the SQL text', () => {
     const result = operatorToSql(col, 'eq', 'HIGH');
-    expect(result.sql).toBe('"priority" = ?');
+    expect(result.sql).toBe('"priority"::text ILIKE ?');
     expect(result.values).toEqual(['HIGH']);
   });
 

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import type { AiModelConfig } from '@prisma/client';
 import {
   LLMProviderError,
   type AIRequestLogEntry,
@@ -8,7 +9,7 @@ import {
   type ModelProfileName,
 } from '@erp/shared-contracts';
 import { PrismaService } from '../prisma/prisma.service';
-import { CredentialStoreService } from './credential-store.service';
+import { CryptoService } from '../crypto/crypto.service';
 import { getProviderAdapter } from './providers/provider.factory';
 
 export class ModelNotConfiguredError extends Error {
@@ -18,9 +19,10 @@ export class ModelNotConfiguredError extends Error {
 }
 
 /**
- * Resolves a logical profile (light/reasoning) to a configured
- * provider/model and executes the call, independent of any specific
- * vendor (AI Models PRD §11).
+ * Resolves a logical profile (light/reasoning) to its configured `active`
+ * config and executes the call, independent of any specific vendor (AI
+ * Models PRD §11). On failure, retries once against the profile's
+ * `fallback` config if one is configured (§16 Model Fallback).
  */
 @Injectable()
 export class ModelRouterService {
@@ -28,23 +30,35 @@ export class ModelRouterService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly credentials: CredentialStoreService,
+    private readonly crypto: CryptoService,
   ) {}
 
+  private resolveConfig(profile: ModelProfileName, status: 'active' | 'fallback') {
+    return this.prisma.aiModelConfig.findFirst({ where: { profile, status } });
+  }
+
   async isConfigured(profile: ModelProfileName): Promise<boolean> {
-    const config = await this.prisma.aiModelProfile.findUnique({ where: { profile } });
-    return Boolean(config?.credentialName);
+    return Boolean(await this.resolveConfig(profile, 'active'));
   }
 
   async generate(profile: ModelProfileName, request: LLMRequest): Promise<LLMResponse> {
+    const active = await this.resolveConfig(profile, 'active');
+    if (!active) throw new ModelNotConfiguredError(profile);
+
+    try {
+      return await this.callConfig(active, profile, request);
+    } catch (err) {
+      const fallback = await this.resolveConfig(profile, 'fallback');
+      if (!fallback) throw err;
+      this.logger.warn(`Primary config failed for profile "${profile}" — retrying with fallback`);
+      return await this.callConfig(fallback, profile, request);
+    }
+  }
+
+  private async callConfig(config: AiModelConfig, profile: ModelProfileName, request: LLMRequest): Promise<LLMResponse> {
     const requestId = randomUUID();
     const started = Date.now();
-    const config = await this.prisma.aiModelProfile.findUnique({ where: { profile } });
-    if (!config || !config.credentialName) {
-      throw new ModelNotConfiguredError(profile);
-    }
-
-    const { secret } = await this.credentials.resolve(config.credentialName);
+    const secret = this.crypto.decrypt(config.encryptedApiKey);
     const adapter = getProviderAdapter(config.provider);
 
     try {

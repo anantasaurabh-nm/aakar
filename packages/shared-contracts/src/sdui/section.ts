@@ -3,13 +3,14 @@ import { ToolbarSchema } from './toolbar';
 import { DashboardConfigSchema } from './dashboard';
 import { TableConfigSchema } from './table';
 import { FormConfigSchema } from './form';
+import { SettingsConfigSchema } from './settings';
 
 /**
  * Every section.type must map to a predefined client renderer.
  * This is the controlled registry of section types the server may request.
  * Adding a new type requires a client renderer + schema + security review (see SDUI PRD §7).
  */
-export const SectionTypeSchema = z.enum(['dashboard', 'table', 'form']);
+export const SectionTypeSchema = z.enum(['dashboard', 'table', 'form', 'settings']);
 export type SectionType = z.infer<typeof SectionTypeSchema>;
 
 export const BadgeTypeSchema = z.enum(['primary', 'success', 'warning', 'accent']);
@@ -46,10 +47,16 @@ export const FormSectionSchema = BaseSectionSchema.extend({
   config: FormConfigSchema,
 });
 
+export const SettingsSectionSchema = BaseSectionSchema.extend({
+  type: z.literal('settings'),
+  config: SettingsConfigSchema,
+});
+
 export const SDUISectionSchema = z.discriminatedUnion('type', [
   DashboardSectionSchema,
   TableSectionSchema,
   FormSectionSchema,
+  SettingsSectionSchema,
 ]);
 export type SDUISection = z.infer<typeof SDUISectionSchema>;
 

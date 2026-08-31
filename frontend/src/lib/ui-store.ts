@@ -12,6 +12,8 @@ interface UiState {
   toasts: { id: string; message: string; tone: 'success' | 'error' }[];
   pushToast: (message: string, tone?: 'success' | 'error') => void;
   dismissToast: (id: string) => void;
+  copilotPage: unknown | null;
+  setCopilotPage: (page: unknown | null) => void;
 }
 
 function applyTheme(theme: ThemePreference) {
@@ -34,7 +36,7 @@ export const useUiStore = create<UiState>((set) => ({
     applyTheme(theme);
     set({ theme });
   },
-  aiPanelOpen: false,
+  aiPanelOpen: true,
   setAiPanelOpen: (open) => set({ aiPanelOpen: open }),
   userMenuOpen: false,
   setUserMenuOpen: (open) => set({ userMenuOpen: open }),
@@ -47,6 +49,8 @@ export const useUiStore = create<UiState>((set) => ({
     }, 3500);
   },
   dismissToast: (id) => set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) })),
+  copilotPage: null,
+  setCopilotPage: (page) => set({ copilotPage: page }),
 }));
 
 if (typeof window !== 'undefined') {

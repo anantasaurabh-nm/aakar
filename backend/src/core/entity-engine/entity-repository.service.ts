@@ -18,7 +18,9 @@ export function operatorToSql(column: Prisma.Sql, operator: ColumnFilter['operat
     case 'ends_with':
       return Prisma.sql`${column}::text ILIKE ${'%' + String(value)}`;
     case 'neq':
-      return Prisma.sql`${column} != ${value}`;
+      return typeof value === 'string'
+        ? Prisma.sql`${column}::text NOT ILIKE ${String(value)}`
+        : Prisma.sql`${column} != ${value}`;
     case 'gt':
       return Prisma.sql`${column} > ${value}`;
     case 'lt':
@@ -29,7 +31,9 @@ export function operatorToSql(column: Prisma.Sql, operator: ColumnFilter['operat
       return Prisma.sql`${column} <= ${value}`;
     case 'eq':
     default:
-      return Prisma.sql`${column} = ${value}`;
+      return typeof value === 'string'
+        ? Prisma.sql`${column}::text ILIKE ${String(value)}`
+        : Prisma.sql`${column} = ${value}`;
   }
 }
 

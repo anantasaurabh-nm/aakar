@@ -50,12 +50,12 @@ export function Dashboard({ section }: { section: DashboardSection }) {
         filters={filters}
         onFilterChange={(field, value) => setFilters((prev) => ({ ...prev, [field]: value }))}
         search=""
-        onSearchChange={() => {}}
+        onSearchChange={() => { }}
         onAction={(action) => {
           if (action.type === 'refresh') queryClient.invalidateQueries({ queryKey: ['ds', section.data?.source] });
         }}
       />
-      <div style={{ padding: 20, overflowY: 'auto' }}>
+      <div style={{ padding: '4px 8px', overflowY: 'auto' }}>
         {hasDataSource && isLoading && <SkeletonCards />}
         {hasDataSource && isError && <ErrorState />}
         {(!hasDataSource || (!isLoading && !isError)) && (
@@ -64,7 +64,7 @@ export function Dashboard({ section }: { section: DashboardSection }) {
               <EmptyState />
             ) : (
               <>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 20 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8, marginBottom: 8 }}>
                   {config.cards.map((card) => (
                     <div
                       key={card.id}
@@ -92,7 +92,7 @@ export function Dashboard({ section }: { section: DashboardSection }) {
                   ))}
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 8 }}>
                   {config.charts.map((chart) => (
                     <div key={chart.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: 18, boxShadow: 'var(--shadow-sm)' }}>
                       <h3 style={{ margin: '0 0 14px', fontSize: 14, fontWeight: 700 }}>{chart.title}</h3>
