@@ -132,7 +132,7 @@ export class UserManagementController {
                 { key: 'created_at', label: 'Joined', type: 'datetime', sortable: true },
               ],
               selectable: true,
-              pageSize: 10,
+              pageSize: 50,
               density: 'comfortable',
               detailView: true,
             },

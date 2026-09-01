@@ -104,7 +104,7 @@ export class EntityRepositoryService {
   async list(moduleId: string, entityKey: string, entity: EntityDefinition, tenantId: string, filters: ListFilters) {
     const table = ident(tableName(moduleId, entityKey));
     const page = filters.page && filters.page > 0 ? filters.page : 1;
-    const pageSize = Math.min(filters.pageSize && filters.pageSize > 0 ? filters.pageSize : 10, 200);
+    const pageSize = Math.min(filters.pageSize && filters.pageSize > 0 ? filters.pageSize : 50, 200);
 
     const conditions: Prisma.Sql[] = [Prisma.sql`tenant_id = ${tenantId}`];
     conditions.push(

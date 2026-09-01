@@ -72,11 +72,14 @@ export class EntityEngineController {
             field: 'recordDate',
             options: [
               { label: 'Today', value: 'today' },
+              { label: 'Yesterday', value: 'yesterday' },
+              { label: 'Last 7 Days', value: 'last_7_days' },
+              { label: 'Last 30 Days', value: 'last_30_days' },
               { label: 'This Week', value: 'this_week' },
               { label: 'This Month', value: 'this_month' },
               { label: 'All Time', value: 'all_time' },
             ],
-            defaultValue: 'today',
+            defaultValue: 'last_30_days',
           },
         ],
         data: { source: `${module}.${entityKey}.insights` },
@@ -107,7 +110,7 @@ export class EntityEngineController {
         config: {
           columns: columnsFromSchema(entity),
           selectable: true,
-          pageSize: 10,
+          pageSize: 50,
           density: 'comfortable' as const,
           detailView: true,
         },
@@ -177,7 +180,7 @@ export class EntityEngineController {
       },
       user,
     );
-    return { items: result.rows ?? [], page: Number(query.page) || 1, pageSize: Number(query.pageSize) || 10, total: result.total ?? 0 };
+    return { items: result.rows ?? [], page: Number(query.page) || 1, pageSize: Number(query.pageSize) || 50, total: result.total ?? 0 };
   }
 
   @Get('data/:module/:entity/insights')
@@ -189,7 +192,7 @@ export class EntityEngineController {
   ) {
     await this.assertRead(user, module, entityKey);
     const entity = this.entityRegistry.getEntityDefinition(module, entityKey);
-    const range = resolveRecordDateRange(recordDate);
+    const range = resolveRecordDateRange(recordDate ?? 'last_30_days');
     const insights = await this.entityRepository.insights(module, entityKey, user.tenantId, {
       recordDateStart: range?.start,
       recordDateEnd: range?.end,

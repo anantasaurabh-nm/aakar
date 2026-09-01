@@ -18,6 +18,18 @@ describe('resolveRecordDateRange', () => {
     expect(resolveRecordDateRange('not-a-real-preset', reference)).toBeNull();
   });
 
+  it('resolves "last_7_days" to a 7-day window on record_date', () => {
+    const range = resolveRecordDateRange('last_7_days', reference);
+    expect(range).not.toBeNull();
+    expect(range!.end.getTime() - range!.start.getTime()).toBe(7 * 24 * 60 * 60 * 1000);
+  });
+
+  it('resolves "last_30_days" to a 30-day window on record_date', () => {
+    const range = resolveRecordDateRange('last_30_days', reference);
+    expect(range).not.toBeNull();
+    expect(range!.end.getTime() - range!.start.getTime()).toBe(30 * 24 * 60 * 60 * 1000);
+  });
+
   it('"this_week" always starts on Monday', () => {
     const range = resolveRecordDateRange('this_week', reference);
     expect(range!.start.getDay()).toBe(1);

@@ -7,6 +7,13 @@ import type { ModuleManifest } from '@erp/shared-contracts';
  * `module_registry` table at boot, preserving any enabled/disabled state an
  * administrator has already set.
  */
+export const SYSTEM_MODULE_IDS = new Set([
+  'user-management',
+  'user-roles',
+  'module-management',
+  'ai-configuration',
+]);
+
 export const MODULE_MANIFESTS: (ModuleManifest & { icon: string })[] = [
   {
     id: 'user-management',

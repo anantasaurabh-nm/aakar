@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { SDUI_SCHEMA_VERSION } from '@erp/shared-contracts';
 import { JwtAuthGuard } from '../../core/auth/jwt-auth.guard';
 import { CurrentUser } from '../../core/auth/current-user.decorator';
@@ -7,6 +7,7 @@ import { PermissionsGuard } from '../../core/rbac/permissions.guard';
 import { RequirePermissions } from '../../core/rbac/require-permissions.decorator';
 import { ModuleRegistryService } from '../../core/modules-registry/module-registry.service';
 import { ModuleDiscoveryService } from '../../core/modules-registry/module-discovery.service';
+import { SYSTEM_MODULE_IDS } from '../../core/modules-registry/module-manifests';
 import { AuditService } from '../../core/audit/audit.service';
 import { EntityRegistryService } from '../../core/entity-engine/entity-registry.service';
 
@@ -50,7 +51,7 @@ export class ModuleManagementController {
                 { key: 'status', label: 'Status', type: 'badge', sortable: true },
               ],
               selectable: false,
-              pageSize: 20,
+              pageSize: 50,
               density: 'comfortable',
               rowActions: [
                 ...(isSuperAdmin
@@ -67,8 +68,8 @@ export class ModuleManagementController {
 
   @Get('data/modules')
   @RequirePermissions('module.read')
-  async list() {
-    const rows = await this.moduleRegistry.listAll();
+  async list(@Query('search') search?: string) {
+    const rows = await this.moduleRegistry.listAll(search);
     return {
       items: rows.map((r) => ({
         id: r.id,
@@ -76,7 +77,8 @@ export class ModuleManagementController {
         type: r.type,
         version: r.version,
         surfaces: r.surfaces,
-        status: r.status,
+        status: SYSTEM_MODULE_IDS.has(r.id) ? 'system' : r.status,
+        isSystem: SYSTEM_MODULE_IDS.has(r.id),
       })),
       page: 1,
       pageSize: rows.length,
@@ -122,6 +124,9 @@ export class ModuleManagementController {
   @Post('actions/modules/:id/toggle')
   @RequirePermissions('module.manage')
   async toggle(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    if (SYSTEM_MODULE_IDS.has(id)) {
+      throw new Error(`System module "${id}" cannot be toggled`);
+    }
     const current = await this.moduleRegistry.get(id);
     if (!current) throw new Error(`Module "${id}" not found`);
 
@@ -133,6 +138,27 @@ export class ModuleManagementController {
       entity: 'module-management.module',
       recordId: id,
       action: next === 'enabled' ? 'enabled' : 'disabled',
+      performedBy: user.id,
+    });
+    return { id: updated.id, status: updated.status };
+  }
+
+  @Post('actions/modules/:id/uninstall')
+  @RequirePermissions('module.install')
+  async uninstall(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    if (SYSTEM_MODULE_IDS.has(id)) {
+      throw new Error(`System module "${id}" cannot be uninstalled`);
+    }
+    const current = await this.moduleRegistry.get(id);
+    if (!current) throw new Error(`Module "${id}" not found`);
+
+    const updated = await this.moduleRegistry.setStatus(id, 'discovered');
+
+    await this.audit.record({
+      tenantId: user.tenantId,
+      entity: 'module-management.module',
+      recordId: id,
+      action: 'uninstalled',
       performedBy: user.id,
     });
     return { id: updated.id, status: updated.status };

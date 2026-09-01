@@ -108,6 +108,10 @@ const REGISTRY: Record<string, SubmitTarget> = {
     invalidates: ['modules'],
     execute: (values) => apiClient.post(`actions/modules/${values.id}/install`),
   },
+  'module.uninstall': {
+    invalidates: ['modules'],
+    execute: (values) => apiClient.post(`actions/modules/${values.id}/uninstall`),
+  },
 
   // Role permissions matrix configuration (Settings surface)
   'role.permissions.update': {

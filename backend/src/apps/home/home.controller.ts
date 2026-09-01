@@ -46,7 +46,7 @@ export class HomeController {
                 { key: 'description', label: 'Description', type: 'text', sortable: false },
               ],
               selectable: false,
-              pageSize: 20,
+              pageSize: 50,
               density: 'comfortable',
               presentation: 'grid',
             },

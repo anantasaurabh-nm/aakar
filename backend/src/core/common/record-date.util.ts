@@ -25,6 +25,10 @@ export function resolveRecordDateRange(
       return { start: addDays(today, 1), end: addDays(today, 2) };
     case 'yesterday':
       return { start: addDays(today, -1), end: today };
+    case 'last_7_days':
+      return { start: addDays(today, -6), end: addDays(today, 1) };
+    case 'last_30_days':
+      return { start: addDays(today, -29), end: addDays(today, 1) };
     case 'this_week': {
       const day = today.getDay();
       const monday = addDays(today, day === 0 ? -6 : 1 - day);

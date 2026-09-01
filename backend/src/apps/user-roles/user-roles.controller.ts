@@ -158,7 +158,7 @@ export class UserRolesController {
                 { key: 'description', label: 'Description', type: 'text', sortable: false },
               ],
               selectable: true,
-              pageSize: 10,
+              pageSize: 50,
               density: 'comfortable',
               detailView: true,
             },
@@ -243,8 +243,8 @@ export class UserRolesController {
 
   @Get('data/roles')
   @RequirePermissions('user.read')
-  list() {
-    return this.roleAdminService.list();
+  list(@Query('search') search?: string) {
+    return this.roleAdminService.list(search);
   }
 
   @Get('data/roles-insights')

@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import type { ModuleDiscoveryEntry, Surface } from '@erp/shared-contracts';
 import { PrismaService } from '../prisma/prisma.service';
-import { MODULE_MANIFESTS } from './module-manifests';
+import { MODULE_MANIFESTS, SYSTEM_MODULE_IDS } from './module-manifests';
 
 const VALID_SURFACES: Surface[] = ['app', 'admin'];
 const ENABLED_CACHE_TTL_MS = 30_000;
@@ -75,8 +75,18 @@ export class ModuleRegistryService implements OnModuleInit {
     }));
   }
 
-  async listAll() {
-    return this.prisma.moduleRegistryEntry.findMany({ orderBy: { name: 'asc' } });
+  async listAll(search?: string) {
+    const q = search?.trim();
+    const where = q
+      ? {
+          OR: [
+            { name: { contains: q, mode: 'insensitive' as const } },
+            { id: { contains: q, mode: 'insensitive' as const } },
+            { description: { contains: q, mode: 'insensitive' as const } },
+          ],
+        }
+      : {};
+    return this.prisma.moduleRegistryEntry.findMany({ where, orderBy: { name: 'asc' } });
   }
 
   async get(id: string) {
@@ -85,6 +95,9 @@ export class ModuleRegistryService implements OnModuleInit {
 
   /** Enable/disable is privileged — callers must independently check `module.manage`. */
   async setStatus(id: string, status: 'discovered' | 'installed' | 'enabled' | 'disabled') {
+    if (SYSTEM_MODULE_IDS.has(id)) {
+      throw new BadRequestException(`System module "${id}" status cannot be changed`);
+    }
     this.enabledCache = null;
     return this.prisma.moduleRegistryEntry.update({ where: { id }, data: { status } });
   }
@@ -103,7 +116,7 @@ export class ModuleRegistryService implements OnModuleInit {
   }
 
   async isEnabled(id: string): Promise<boolean> {
-    if (id === 'core') return true;
+    if (id === 'core' || SYSTEM_MODULE_IDS.has(id)) return true;
     const ids = await this.loadEnabledIds();
     return ids.has(id);
   }

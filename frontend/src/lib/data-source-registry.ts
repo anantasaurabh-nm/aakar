@@ -20,10 +20,10 @@ const REGISTRY: Record<string, DataSourceFn> = {
   users: (params) => apiClient.get(`data/users${buildQuery(params ?? {})}`),
   'users.insights': () => apiClient.get('data/users-insights'),
 
-  'user-roles.role': () => apiClient.get('data/roles'),
+  'user-roles.role': (params) => apiClient.get(`data/roles${buildQuery(params ?? {})}`),
   'roles.insights': () => apiClient.get('data/roles-insights'),
 
-  modules: () => apiClient.get('data/modules'),
+  modules: (params) => apiClient.get(`data/modules${buildQuery(params ?? {})}`),
 };
 
 export class UnknownDataSourceError extends Error {

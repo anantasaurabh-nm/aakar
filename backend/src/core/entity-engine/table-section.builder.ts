@@ -182,7 +182,7 @@ export function buildTableSectionFromSchema(
     config: {
       columns: columnsFromSchema(entity),
       selectable: true,
-      pageSize: 10,
+      pageSize: 50,
       density: 'comfortable' as const,
       detailView: true,
     },

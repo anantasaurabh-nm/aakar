@@ -27,7 +27,7 @@ export type TableColumn = z.infer<typeof TableColumnSchema>;
 export const TableConfigSchema = z.object({
   columns: z.array(TableColumnSchema).default([]),
   selectable: z.boolean().default(false),
-  pageSize: z.number().default(10),
+  pageSize: z.number().default(50),
   density: z.enum(['comfortable', 'compact']).default('comfortable'),
   rowActions: z
     .array(

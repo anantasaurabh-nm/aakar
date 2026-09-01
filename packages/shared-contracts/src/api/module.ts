@@ -8,7 +8,7 @@ export const ModuleTypeSchema = z.enum(['native', 'connector', 'hybrid']);
 export type ModuleType = z.infer<typeof ModuleTypeSchema>;
 
 /** `discovered` = manifest found on disk but not yet installed (schema not migrated). */
-export const ModuleStatusSchema = z.enum(['discovered', 'installed', 'enabled', 'disabled']);
+export const ModuleStatusSchema = z.enum(['discovered', 'installed', 'enabled', 'disabled', 'system']);
 export type ModuleStatus = z.infer<typeof ModuleStatusSchema>;
 
 export const ModulePermissionSchema = z.object({

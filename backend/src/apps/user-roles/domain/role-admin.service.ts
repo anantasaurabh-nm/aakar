@@ -132,10 +132,20 @@ export class RoleAdminService implements OnModuleInit {
     }
   }
 
-  async list() {
+  async list(search?: string) {
     await this.ensureDefaultRoles();
+    const q = search?.trim();
+    const where = q
+      ? {
+          OR: [
+            { name: { contains: q, mode: 'insensitive' as const } },
+            { key: { contains: q, mode: 'insensitive' as const } },
+            { description: { contains: q, mode: 'insensitive' as const } },
+          ],
+        }
+      : {};
     const [roles, rolePerms, userCounts] = await Promise.all([
-      this.prisma.roleDefinition.findMany({ orderBy: [{ isSystem: 'desc' }, { name: 'asc' }] }),
+      this.prisma.roleDefinition.findMany({ where, orderBy: [{ isSystem: 'desc' }, { name: 'asc' }] }),
       this.prisma.rolePermission.findMany({ select: { role: true, permission: true } }),
       this.prisma.user.groupBy({ by: ['role'], _count: { _all: true } }),
     ]);

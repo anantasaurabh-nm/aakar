@@ -302,6 +302,99 @@ function ColumnHeaderMenu({
   );
 }
 
+function renderRowActionButtons(
+  sectionId: string | undefined,
+  rowActions: { id: string; label: string; action: unknown }[],
+  row: Record<string, unknown>,
+  handleAction: (action: SDUIAction, row?: Record<string, unknown>) => Promise<void>,
+) {
+  const isSystem = row.status === 'system' || Boolean(row.isSystem);
+
+  if (sectionId === 'modules-table' || isSystem) {
+    if (isSystem) {
+      return <span style={{ color: 'var(--text-tertiary)', fontSize: 12, fontStyle: 'italic' }}>System Core</span>;
+    }
+
+    const status = String(row.status);
+    const actionsToRender: { id: string; label: string; target: string; color?: string; confirmMessage?: string }[] = [];
+
+    if (status === 'discovered') {
+      actionsToRender.push({ id: 'install', label: 'Install', target: 'module.install' });
+    } else {
+      // Installed / Enabled / Disabled
+      if (status === 'enabled') {
+        actionsToRender.push({ id: 'disable', label: 'Disable', target: 'module.toggle', color: 'var(--accent-red)' });
+      } else {
+        actionsToRender.push({ id: 'enable', label: 'Enable', target: 'module.toggle', color: 'var(--accent-indigo)' });
+      }
+      actionsToRender.push({
+        id: 'uninstall',
+        label: 'Uninstall',
+        target: 'module.uninstall',
+        color: 'var(--text-secondary)',
+        confirmMessage: `Are you sure you want to uninstall "${row.name || row.id}"?`,
+      });
+    }
+
+    return (
+      <>
+        {actionsToRender.map((act) => (
+          <button
+            key={act.id}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAction(
+                {
+                  type: 'submit',
+                  target: act.target,
+                  ...(act.confirmMessage ? { confirm: { message: act.confirmMessage } } : {}),
+                },
+                row,
+              );
+            }}
+            style={{
+              border: 'none',
+              background: 'transparent',
+              color: act.color ?? 'var(--accent-indigo)',
+              fontWeight: 600,
+              fontSize: 12.5,
+              cursor: 'pointer',
+              marginLeft: 10,
+            }}
+          >
+            {act.label}
+          </button>
+        ))}
+      </>
+    );
+  }
+
+  return (
+    <>
+      {rowActions.map((rowAction) => (
+        <button
+          key={rowAction.id}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleAction(rowAction.action as SDUIAction, row);
+          }}
+          style={{
+            border: 'none',
+            background: 'transparent',
+            color: 'var(--accent-indigo)',
+            fontWeight: 600,
+            fontSize: 12.5,
+            cursor: 'pointer',
+            marginLeft: 10,
+          }}
+        >
+          {rowAction.label}
+        </button>
+      ))}
+    </>
+  );
+}
+
 export function DataTable({ section }: { section: TableSection }) {
   const queryClient = useQueryClient();
   const pushToast = useUiStore((s) => s.pushToast);
@@ -317,10 +410,11 @@ export function DataTable({ section }: { section: TableSection }) {
   const [filters, setFilters] = useState<Record<string, string>>(initialSectionFilters ?? {});
   const [search, setSearch] = useState(initialSearch ?? '');
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(section.config.pageSize || 10);
+  const [pageSize, setPageSize] = useState(section.config.pageSize || 50);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
   const [formState, setFormState] = useState<{ open: boolean; section?: Record<string, unknown> }>({ open: false });
+  const [executingTarget, setExecutingTarget] = useState<string | null>(null);
 
   const initialRecordId = (section.state as Record<string, unknown> | undefined)?.initialRecordId as string | undefined;
   const [viewState, setViewState] = useState<{ mode: 'list' } | { mode: 'record'; recordId?: string; startInEditMode?: boolean }>(() => {
@@ -505,6 +599,10 @@ export function DataTable({ section }: { section: TableSection }) {
       case 'submit': {
         if (!action.target) return;
         if (action.confirm && !window.confirm(action.confirm.message)) return;
+        setExecutingTarget(action.target);
+        if (action.target === 'module.discover') {
+          pushToast('Discovering available modules…');
+        }
         try {
           const submitTarget = getSubmitTarget(action.target);
           const result = await submitTarget.execute(row ? { id: row.id } : {});
@@ -512,6 +610,8 @@ export function DataTable({ section }: { section: TableSection }) {
           for (const source of submitTarget.invalidates) queryClient.invalidateQueries({ queryKey: ['ds', source] });
         } catch (err) {
           pushToast(err instanceof Error ? err.message : 'Failed to update', 'error');
+        } finally {
+          setExecutingTarget(null);
         }
         return;
       }
@@ -673,27 +773,33 @@ export function DataTable({ section }: { section: TableSection }) {
           })}
 
           {/* Other custom section actions (if any) */}
-          {otherActionItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => item.action && handleAction(item.action)}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '8px 14px',
-                borderRadius: 8,
-                border: '1px solid var(--border)',
-                background: 'var(--surface)',
-                color: 'var(--text-primary)',
-                fontWeight: 600,
-                fontSize: 13,
-                cursor: 'pointer',
-              }}
-            >
-              {item.label ?? item.id}
-            </button>
-          ))}
+          {otherActionItems.map((item) => {
+            const isExecuting = Boolean(item.action?.target && executingTarget === item.action.target);
+            return (
+              <button
+                key={item.id}
+                disabled={isExecuting}
+                onClick={() => item.action && handleAction(item.action)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '8px 14px',
+                  borderRadius: 8,
+                  border: '1px solid var(--border)',
+                  background: 'var(--surface)',
+                  color: 'var(--text-primary)',
+                  fontWeight: 600,
+                  fontSize: 13,
+                  cursor: isExecuting ? 'wait' : 'pointer',
+                  opacity: isExecuting ? 0.75 : 1,
+                }}
+              >
+                {isExecuting && <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} />}
+                {isExecuting && item.action?.target === 'module.discover' ? 'Discovering…' : item.label ?? item.id}
+              </button>
+            );
+          })}
 
           {/* Search: Input */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 4 }}>
@@ -1319,26 +1425,7 @@ export function DataTable({ section }: { section: TableSection }) {
                       ))}
                       {!isDetailView && (section.config.rowActions?.length ?? 0) > 0 && (
                         <td style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                          {section.config.rowActions!.map((rowAction) => (
-                            <button
-                              key={rowAction.id}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleAction(rowAction.action as SDUIAction, row.original);
-                              }}
-                              style={{
-                                border: 'none',
-                                background: 'transparent',
-                                color: 'var(--accent-indigo)',
-                                fontWeight: 600,
-                                fontSize: 12.5,
-                                cursor: 'pointer',
-                                marginLeft: 10,
-                              }}
-                            >
-                              {rowAction.label}
-                            </button>
-                          ))}
+                          {renderRowActionButtons(section.id, section.config.rowActions!, row.original, handleAction)}
                         </td>
                       )}
                     </tr>
@@ -1392,6 +1479,8 @@ const dropdownMenuItemStyle: React.CSSProperties = {
   cursor: 'pointer',
   textAlign: 'left',
 };
+
+
 
 function summarizeSubmitResult(result: unknown): string | null {
   if (!result || typeof result !== 'object') return null;

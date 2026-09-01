@@ -45,6 +45,8 @@ export const RECORD_DATE_PRESETS = [
   'today',
   'tomorrow',
   'yesterday',
+  'last_7_days',
+  'last_30_days',
   'this_week',
   'last_week',
   'this_month',
@@ -55,7 +57,7 @@ export type RecordDatePreset = (typeof RECORD_DATE_PRESETS)[number];
 
 export const PaginationQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(200).default(10),
+  pageSize: z.coerce.number().int().min(1).max(200).default(50),
 });
 export type PaginationQuery = z.infer<typeof PaginationQuerySchema>;
 
