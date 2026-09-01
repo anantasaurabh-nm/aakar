@@ -16,8 +16,12 @@ const REGISTRY: Record<string, DataSourceFn> = {
   'todo.task': (params) => apiClient.get(`data/todo/task${buildQuery(params ?? {})}`),
   'todo.task.insights': (params) => apiClient.get(`data/todo/task/insights${buildQuery(params ?? {})}`),
 
+  'user-management.user': (params) => apiClient.get(`data/users${buildQuery(params ?? {})}`),
   users: (params) => apiClient.get(`data/users${buildQuery(params ?? {})}`),
-  'users.insights': () => apiClient.get('data/users/insights'),
+  'users.insights': () => apiClient.get('data/users-insights'),
+
+  'user-roles.role': () => apiClient.get('data/roles'),
+  'roles.insights': () => apiClient.get('data/roles-insights'),
 
   modules: () => apiClient.get('data/modules'),
 };

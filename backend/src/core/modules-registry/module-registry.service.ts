@@ -103,6 +103,7 @@ export class ModuleRegistryService implements OnModuleInit {
   }
 
   async isEnabled(id: string): Promise<boolean> {
+    if (id === 'core') return true;
     const ids = await this.loadEnabledIds();
     return ids.has(id);
   }

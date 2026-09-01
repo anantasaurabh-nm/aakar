@@ -1,7 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
-const IDENT_RE = /^[a-z][a-z0-9_]*$/;
+const IDENT_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
 /**
  * The only place raw text is ever spliced into SQL in this engine. Only

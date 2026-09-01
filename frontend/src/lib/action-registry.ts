@@ -47,16 +47,53 @@ const REGISTRY: Record<string, SubmitTarget> = {
   },
 
   'user.create': {
-    invalidates: ['users', 'users.insights'],
+    invalidates: ['user-management.user', 'users', 'users.insights'],
+    execute: (values) => apiClient.post('actions/users', omit(values, ['id'])),
+  },
+  'user-management.user.create': {
+    invalidates: ['user-management.user', 'users', 'users.insights'],
     execute: (values) => apiClient.post('actions/users', omit(values, ['id'])),
   },
   'user.update': {
-    invalidates: ['users', 'users.insights'],
+    invalidates: ['user-management.user', 'users', 'users.insights'],
+    execute: (values) => apiClient.patch(`actions/users/${values.id}`, omit(values, ['id'])),
+  },
+  'user-management.user.update': {
+    invalidates: ['user-management.user', 'users', 'users.insights'],
     execute: (values) => apiClient.patch(`actions/users/${values.id}`, omit(values, ['id'])),
   },
   'user.deactivate': {
-    invalidates: ['users', 'users.insights'],
+    invalidates: ['user-management.user', 'users', 'users.insights'],
     execute: (values) => apiClient.delete(`actions/users/${values.id}`),
+  },
+  'user-management.user.delete': {
+    invalidates: ['user-management.user', 'users', 'users.insights'],
+    execute: (values) => apiClient.delete(`actions/users/${values.id}`),
+  },
+
+  'role.create': {
+    invalidates: ['user-roles.role', 'roles.insights'],
+    execute: (values) => apiClient.post('actions/roles', omit(values, ['id'])),
+  },
+  'user-roles.role.create': {
+    invalidates: ['user-roles.role', 'roles.insights'],
+    execute: (values) => apiClient.post('actions/roles', omit(values, ['id'])),
+  },
+  'role.update': {
+    invalidates: ['user-roles.role', 'roles.insights'],
+    execute: (values) => apiClient.patch(`actions/roles/${values.id}`, omit(values, ['id'])),
+  },
+  'user-roles.role.update': {
+    invalidates: ['user-roles.role', 'roles.insights'],
+    execute: (values) => apiClient.patch(`actions/roles/${values.id}`, omit(values, ['id'])),
+  },
+  'role.delete': {
+    invalidates: ['user-roles.role', 'roles.insights'],
+    execute: (values) => apiClient.delete(`actions/roles/${values.id}`),
+  },
+  'user-roles.role.delete': {
+    invalidates: ['user-roles.role', 'roles.insights'],
+    execute: (values) => apiClient.delete(`actions/roles/${values.id}`),
   },
 
   'module.toggle': {
@@ -70,6 +107,12 @@ const REGISTRY: Record<string, SubmitTarget> = {
   'module.install': {
     invalidates: ['modules'],
     execute: (values) => apiClient.post(`actions/modules/${values.id}/install`),
+  },
+
+  // Role permissions matrix configuration (Settings surface)
+  'role.permissions.update': {
+    invalidates: ['user-roles.role', 'roles.insights'],
+    execute: (values) => apiClient.put('actions/role-permissions', values),
   },
 
   // Settings groups don't use the 'ds' data-source cache (values are inlined

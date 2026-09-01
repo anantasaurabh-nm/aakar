@@ -1,4 +1,4 @@
-import { Role } from '@prisma/client';
+import type { Role } from '../rbac/permission-catalog';
 
 /** The server-trusted identity attached to `request.user` by JwtAuthGuard. */
 export interface AuthenticatedUser {

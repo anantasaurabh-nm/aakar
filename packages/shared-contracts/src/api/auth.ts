@@ -5,13 +5,16 @@ import { z } from 'zod';
  * decision is always made against fine-grained permission strings
  * (e.g. "todo.read") resolved server-side — never trust a client-supplied role.
  */
-export const RoleSchema = z.enum([
+export const SystemRoleEnum = z.enum([
   'SUPER_ADMIN', // platform admin — cross-tenant
   'TENANT_ADMIN', // admin within their own tenant
   'MANAGER',
   'STAFF',
   'VIEWER',
 ]);
+export type SystemRole = z.infer<typeof SystemRoleEnum>;
+
+export const RoleSchema = z.string().min(1);
 export type Role = z.infer<typeof RoleSchema>;
 
 export const LoginRequestSchema = z.object({

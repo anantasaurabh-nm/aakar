@@ -79,22 +79,68 @@ export function DynamicForm({ config, initialValues, onCancel, onSuccess, hideBu
     <form id={formId} onSubmit={handleSubmit(onSubmit)} noValidate>
       {config.fields
         .filter((f) => f.type !== 'hidden')
-        .map((field) => (
-          <div key={field.name} style={{ marginBottom: 16 }}>
-            <label
-              htmlFor={field.name}
-              style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6, color: 'var(--text-secondary)' }}
-            >
-              {field.label}
-            </label>
-            <FieldInput field={field} register={register} />
-            {errors[field.name] && (
-              <p style={{ color: 'var(--accent-red)', fontSize: 12, marginTop: 4 }}>
-                {String(errors[field.name]?.message ?? 'Invalid value')}
-              </p>
-            )}
-          </div>
-        ))}
+        .map((field) => {
+          const isToggle = field.type === 'switch' || field.type === 'checkbox';
+          if (isToggle) {
+            return (
+              <div
+                key={field.name}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '10px 14px',
+                  borderRadius: 8,
+                  background: 'var(--surface-2)',
+                  border: '1px solid var(--border)',
+                  marginBottom: 10,
+                }}
+              >
+                <label
+                  htmlFor={field.name}
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: 'var(--text-primary)',
+                    cursor: 'pointer',
+                    flex: 1,
+                    marginRight: 12,
+                  }}
+                >
+                  {field.label}
+                </label>
+                <input
+                  id={field.name}
+                  type="checkbox"
+                  style={{
+                    width: 18,
+                    height: 18,
+                    accentColor: 'var(--accent-indigo)',
+                    cursor: 'pointer',
+                  }}
+                  {...register(field.name)}
+                />
+              </div>
+            );
+          }
+
+          return (
+            <div key={field.name} style={{ marginBottom: 16 }}>
+              <label
+                htmlFor={field.name}
+                style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6, color: 'var(--text-secondary)' }}
+              >
+                {field.label}
+              </label>
+              <FieldInput field={field} register={register} />
+              {errors[field.name] && (
+                <p style={{ color: 'var(--accent-red)', fontSize: 12, marginTop: 4 }}>
+                  {String(errors[field.name]?.message ?? 'Invalid value')}
+                </p>
+              )}
+            </div>
+          );
+        })}
       {config.fields
         .filter((f) => f.type === 'hidden')
         .map((field) => (
@@ -166,7 +212,7 @@ export function FieldInput({ field, register }: { field: SDUIFormField; register
       );
     case 'checkbox':
     case 'switch':
-      return <input id={field.name} type="checkbox" {...register(field.name)} />;
+      return <input id={field.name} type="checkbox" style={{ width: 18, height: 18, accentColor: 'var(--accent-indigo)' }} {...register(field.name)} />;
     case 'date':
       return <input id={field.name} type="date" style={baseStyle} {...register(field.name)} />;
     case 'datetime':

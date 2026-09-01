@@ -1,4 +1,6 @@
-import { Role } from '@prisma/client';
+export type Role = 'SUPER_ADMIN' | 'TENANT_ADMIN' | 'MANAGER' | 'STAFF' | 'VIEWER' | string;
+
+export const SYSTEM_ROLES = ['SUPER_ADMIN', 'TENANT_ADMIN', 'MANAGER', 'STAFF', 'VIEWER'] as const;
 
 /**
  * Default permission catalog for DoersOS Core's own platform permissions
@@ -9,7 +11,7 @@ import { Role } from '@prisma/client';
  * since this static catalog is only ever consulted as a fallback for a
  * completely empty table (see PermissionsService.loadMap).
  */
-export const DEFAULT_ROLE_PERMISSIONS: Record<Role, string[]> = {
+export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   SUPER_ADMIN: [
     'user.read',
     'user.create',

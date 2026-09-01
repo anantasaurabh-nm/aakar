@@ -34,7 +34,7 @@ export function SDUIPageRenderer({
 
   return (
     <AppShell brand={brand} navigation={navigation}>
-      <SectionRotator sections={page.sections} renderSection={(section) => <SDUISectionRenderer section={section} />} />
+      <SectionRotator key={page.id} sections={page.sections} renderSection={(section) => <SDUISectionRenderer section={section} />} />
     </AppShell>
   );
 }

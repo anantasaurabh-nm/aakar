@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Monitor, Moon, Sun } from 'lucide-react';
 import { useUiStore, type ThemePreference } from '@/lib/ui-store';
 
@@ -12,6 +13,13 @@ const OPTIONS: { value: ThemePreference; label: string; icon: typeof Sun }[] = [
 export function ThemeToggle() {
   const theme = useUiStore((s) => s.theme);
   const setTheme = useUiStore((s) => s.setTheme);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const currentTheme = mounted ? theme : 'system';
 
   return (
     <div
@@ -26,7 +34,7 @@ export function ThemeToggle() {
       }}
     >
       {OPTIONS.map(({ value, label, icon: Icon }) => {
-        const active = theme === value;
+        const active = currentTheme === value;
         return (
           <button
             key={value}

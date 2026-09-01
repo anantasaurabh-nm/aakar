@@ -17,6 +17,20 @@ describe('getSubmitTarget', () => {
     expect(target.invalidates).toEqual(['todo.task', 'todo.task.insights']);
   });
 
+  it('resolves role.permissions.update target', () => {
+    const target = getSubmitTarget('role.permissions.update');
+    expect(target).toBeDefined();
+    expect(target.invalidates).toEqual(['user-roles.role', 'roles.insights']);
+  });
+
+  it('resolves user.create and user.deactivate targets', () => {
+    const createTarget = getSubmitTarget('user.create');
+    expect(createTarget.invalidates).toEqual(['user-management.user', 'users', 'users.insights']);
+
+    const deleteTarget = getSubmitTarget('user.deactivate');
+    expect(deleteTarget.invalidates).toEqual(['user-management.user', 'users', 'users.insights']);
+  });
+
   it('rejects an unknown target instead of executing an arbitrary action', () => {
     expect(() => getSubmitTarget('server.provided.anything')).toThrow(UnknownActionTargetError);
   });

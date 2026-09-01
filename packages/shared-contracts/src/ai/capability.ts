@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ColumnFilterSchema } from '../sdui/table';
 
 /**
  * A capability is a concrete, named operation the AI Orchestrator can
@@ -24,6 +25,55 @@ export const OrchestratorDecisionSchema = z.object({
 });
 export type OrchestratorDecision = z.infer<typeof OrchestratorDecisionSchema>;
 
+// --- Structured Query AST for Safe Cross-Entity Semantic Query Engine ---
+
+export const QueryEntityRefSchema = z.object({
+  module: z.string(),
+  entity: z.string(),
+  alias: z.string().optional(),
+});
+export type QueryEntityRef = z.infer<typeof QueryEntityRefSchema>;
+
+export const QueryJoinSchema = z.object({
+  module: z.string(),
+  entity: z.string(),
+  alias: z.string().optional(),
+  type: z.enum(['INNER', 'LEFT']).default('INNER'),
+  on: z.object({
+    left: z.string(),
+    right: z.string(),
+  }),
+  where: z.array(ColumnFilterSchema).optional(),
+});
+export type QueryJoin = z.infer<typeof QueryJoinSchema>;
+
+export const QuerySelectFieldSchema = z.object({
+  field: z.string(),
+  label: z.string(),
+  aggregate: z.enum(['COUNT', 'SUM', 'AVG', 'MIN', 'MAX']).optional(),
+  type: z.enum(['text', 'badge', 'number', 'datetime', 'boolean', 'date', 'link']).optional(),
+});
+export type QuerySelectField = z.infer<typeof QuerySelectFieldSchema>;
+
+export const StructuredQuerySchema = z.object({
+  title: z.string().optional(),
+  primaryEntity: QueryEntityRefSchema,
+  joins: z.array(QueryJoinSchema).default([]),
+  select: z.array(QuerySelectFieldSchema).min(1),
+  where: z.array(ColumnFilterSchema).default([]),
+  groupBy: z.array(z.string()).optional(),
+  orderBy: z
+    .array(
+      z.object({
+        field: z.string(),
+        direction: z.enum(['asc', 'desc']).default('asc'),
+      }),
+    )
+    .optional(),
+  limit: z.number().int().min(1).max(200).default(50),
+});
+export type StructuredQuery = z.infer<typeof StructuredQuerySchema>;
+
 /** Structured, UI-independent result of executing a capability (Amendment 01 §26). */
 export interface CapabilityResult {
   module: string;
@@ -33,6 +83,7 @@ export interface CapabilityResult {
   total?: number;
   params?: Record<string, unknown>;
   message?: string;
+  querySpec?: StructuredQuery;
   /** Data-source ids the client should invalidate/refetch after a mutation. */
   invalidates?: string[];
 }

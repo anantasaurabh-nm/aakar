@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { DEFAULT_ROLE_PERMISSIONS } from './permission-catalog';
+import { DEFAULT_ROLE_PERMISSIONS, type Role } from './permission-catalog';
 
 const CACHE_TTL_MS = 30_000;
 
@@ -14,19 +13,24 @@ const CACHE_TTL_MS = 30_000;
  */
 @Injectable()
 export class PermissionsService {
-  private cache: { at: number; map: Map<Role, Set<string>> } | null = null;
+  private cache: { at: number; map: Map<string, Set<string>> } | null = null;
 
   constructor(private readonly prisma: PrismaService) {}
 
-  private async loadMap(): Promise<Map<Role, Set<string>>> {
+  /** Invalidates memory cache so role permission mutations take effect immediately. */
+  invalidateCache(): void {
+    this.cache = null;
+  }
+
+  private async loadMap(): Promise<Map<string, Set<string>>> {
     if (this.cache && Date.now() - this.cache.at < CACHE_TTL_MS) {
       return this.cache.map;
     }
     const rows = await this.prisma.rolePermission.findMany();
-    const map = new Map<Role, Set<string>>();
+    const map = new Map<string, Set<string>>();
     if (rows.length === 0) {
       for (const [role, perms] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
-        map.set(role as Role, new Set(perms));
+        map.set(role, new Set(perms));
       }
     } else {
       for (const row of rows) {
@@ -38,20 +42,53 @@ export class PermissionsService {
     return map;
   }
 
-  async getPermissionsForRole(role: Role): Promise<string[]> {
+  async getPermissionsForRole(role: string): Promise<string[]> {
     const map = await this.loadMap();
     return Array.from(map.get(role) ?? []);
   }
 
-  async hasPermission(role: Role, permission: string): Promise<boolean> {
+  async getRolePermissionsMap(): Promise<Record<string, string[]>> {
+    const map = await this.loadMap();
+    const result: Record<string, string[]> = {};
+    for (const [role, perms] of map.entries()) {
+      result[role] = Array.from(perms);
+    }
+    return result;
+  }
+
+  async hasPermission(role: string, permission: string): Promise<boolean> {
     const map = await this.loadMap();
     return map.get(role)?.has(permission) ?? false;
   }
 
-  async hasAnyPermission(role: Role, permissions: string[]): Promise<boolean> {
+  async hasAnyPermission(role: string, permissions: string[]): Promise<boolean> {
     const map = await this.loadMap();
     const granted = map.get(role);
     if (!granted) return false;
     return permissions.some((p) => granted.has(p));
+  }
+
+  async updateRolePermissions(
+    role: string,
+    permissionsDelta: Record<string, boolean>,
+  ): Promise<{ role: string; updatedCount: number }> {
+    let updatedCount = 0;
+    for (const [permission, grant] of Object.entries(permissionsDelta)) {
+      if (grant) {
+        await this.prisma.rolePermission.upsert({
+          where: { role_permission: { role, permission } },
+          create: { role, permission },
+          update: {},
+        });
+        updatedCount++;
+      } else {
+        await this.prisma.rolePermission.deleteMany({
+          where: { role, permission },
+        });
+        updatedCount++;
+      }
+    }
+    this.invalidateCache();
+    return { role, updatedCount };
   }
 }

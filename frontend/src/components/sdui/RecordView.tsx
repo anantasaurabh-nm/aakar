@@ -8,14 +8,15 @@ import { fetchFormSection } from '@/lib/form-registry';
 import { getSubmitTarget } from '@/lib/action-registry';
 import { lifecycleFor, TRANSITION_TARGET_SUFFIX, type RecordStatus } from '@/lib/record-lifecycle';
 import { DynamicForm, FieldDisplay } from './DynamicForm';
+import { RolePermissionMatrix, type PermissionModuleGroup } from './RolePermissionMatrix';
 import { Badge } from '@/components/ui/Badge';
 import { useUiStore } from '@/lib/ui-store';
-import { transform } from 'zod/v4';
 
 interface FormSectionResponse {
   label: string;
   config: FormConfig;
   record?: Record<string, unknown>;
+  permissionModules?: PermissionModuleGroup[];
 }
 
 function getStatusTone(status?: string): 'neutral' | 'primary' | 'success' | 'danger' | 'warning' {
@@ -59,32 +60,50 @@ export function RecordView({
 }) {
   const queryClient = useQueryClient();
   const pushToast = useUiStore((s) => s.pushToast);
+
   const isNew = !recordId;
   const [editing, setEditing] = useState(isNew || startInEditMode);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const formTarget = `${module}.${entity}.form`;
-  const formQueryKey = ['record-form', module, entity, recordId];
-  const { data, isLoading, isError } = useQuery({
+  const formQueryKey = ['form', formTarget, recordId ?? 'new'];
+
+  const { data, isLoading, error } = useQuery<FormSectionResponse>({
     queryKey: formQueryKey,
     queryFn: () => fetchFormSection(formTarget, recordId ? { id: recordId } : undefined) as Promise<FormSectionResponse>,
   });
 
+  // Close dropdown on outside click
   useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (dropdownOpen && dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setDropdownOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [dropdownOpen]);
+  }, []);
 
-  if (isLoading) return <div style={{ padding: 24, color: 'var(--text-secondary)' }}>Loading…</div>;
-  if (isError || !data) return <div style={{ padding: 24, color: 'var(--text-secondary)' }}>Couldn&apos;t load this record.</div>;
+  if (isLoading) {
+    return (
+      <div style={{ padding: '32px 28px', color: 'var(--text-secondary)', fontSize: 14 }}>
+        Loading record...
+      </div>
+    );
+  }
 
-  const status = data.record?.record_status as string | undefined;
+  if (error || !data) {
+    return (
+      <div style={{ padding: '32px 28px', color: 'var(--accent-red)', fontSize: 14 }}>
+        Failed to load record:{' '}
+        {error instanceof Error ? error.message : 'Unknown error'}
+      </div>
+    );
+  }
+
+  const rawStatus = data.record?.record_status ?? data.record?.status;
+  const status = typeof rawStatus === 'string' ? (rawStatus as RecordStatus) : undefined;
   const lifecycle = lifecycleFor(status);
 
   function invalidateAndSettle(invalidates: string[], close: boolean) {
@@ -94,10 +113,16 @@ export function RecordView({
     else setEditing(false);
   }
 
-  async function runTransition(to: RecordStatus, label: string, needsConfirm?: boolean) {
-    if (needsConfirm && !window.confirm(`${label}? This cannot be undone.`)) return;
+  async function runTransition(to: RecordStatus, label: string, confirm?: boolean | string) {
+    if (!recordId) return;
+    if (confirm) {
+      const msg = typeof confirm === 'string' ? confirm : `Are you sure you want to ${label.toLowerCase()} this record?`;
+      if (!window.confirm(msg)) return;
+    }
+
     try {
-      const target = getSubmitTarget(`${module}.${entity}.${TRANSITION_TARGET_SUFFIX[to]}`);
+      const suffix = TRANSITION_TARGET_SUFFIX[to];
+      const target = getSubmitTarget(`${module}.${entity}.${suffix}`);
       await target.execute({ id: recordId });
       pushToast(`${label} successful.`);
       setDropdownOpen(false);
@@ -191,7 +216,6 @@ export function RecordView({
                   setEditing(true);
                 }}
                 style={{
-
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 6,
@@ -372,7 +396,7 @@ export function RecordView({
       </div>
 
       {/* Body: Dynamic Form (when editing) or Field Values (when viewing) */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px', margin: '6px 12px' }} className="record-view-pane" >
+      <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px', margin: '6px 12px' }} className="record-view-pane">
         {editing ? (
           <DynamicForm
             formId="record-form"
@@ -407,7 +431,16 @@ export function RecordView({
               ))}
           </div>
         )}
+
+        {/* Permission Matrix below view/edit area */}
+        {data.permissionModules && data.permissionModules.length > 0 && (
+          <RolePermissionMatrix
+            roleKey={String(data.record?.key || data.record?.id || '')}
+            roleName={String(data.record?.name || '')}
+            initialModules={data.permissionModules}
+          />
+        )}
       </div>
-    </div >
+    </div>
   );
 }

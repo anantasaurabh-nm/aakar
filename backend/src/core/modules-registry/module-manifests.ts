@@ -18,6 +18,15 @@ export const MODULE_MANIFESTS: (ModuleManifest & { icon: string })[] = [
     icon: 'users',
   },
   {
+    id: 'user-roles',
+    name: 'Roles & Permissions',
+    version: '1.0.0',
+    description: 'Create custom roles and manage module permission matrix',
+    type: 'native',
+    surfaces: ['admin'],
+    icon: 'shield',
+  },
+  {
     id: 'module-management',
     name: 'Module Management',
     version: '1.0.0',

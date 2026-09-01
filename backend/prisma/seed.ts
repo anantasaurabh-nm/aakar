@@ -1,11 +1,19 @@
-import { PrismaClient, Role, Prisma } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { hash } from 'bcryptjs';
-import { DEFAULT_ROLE_PERMISSIONS } from '../src/core/rbac/permission-catalog';
+import { DEFAULT_ROLE_PERMISSIONS, type Role } from '../src/core/rbac/permission-catalog';
 
 const prisma = new PrismaClient();
 
 const DEMO_PASSWORD = 'Password123!';
+
+const DEFAULT_SYSTEM_ROLES = [
+  { key: 'SUPER_ADMIN', name: 'Super Admin', description: 'Full system and platform administration access' },
+  { key: 'TENANT_ADMIN', name: 'Tenant Admin', description: 'Workspace administrator with full tenant control' },
+  { key: 'MANAGER', name: 'Manager', description: 'Operational team lead with approvals and management access' },
+  { key: 'STAFF', name: 'Staff', description: 'Standard operational team member' },
+  { key: 'VIEWER', name: 'Viewer', description: 'Read-only access across enabled modules' },
+];
 
 async function main() {
   const tenant = await prisma.tenant.upsert({
@@ -14,11 +22,28 @@ async function main() {
     update: {},
   });
 
+  for (const role of DEFAULT_SYSTEM_ROLES) {
+    await prisma.roleDefinition.upsert({
+      where: { key: role.key },
+      create: {
+        id: role.key.toLowerCase(),
+        key: role.key,
+        name: role.name,
+        description: role.description,
+        isSystem: true,
+      },
+      update: {
+        name: role.name,
+        isSystem: true,
+      },
+    });
+  }
+
   for (const [role, permissions] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
     for (const permission of permissions) {
       await prisma.rolePermission.upsert({
-        where: { role_permission: { role: role as Role, permission } },
-        create: { role: role as Role, permission },
+        where: { role_permission: { role, permission } },
+        create: { role, permission },
         update: {},
       });
     }

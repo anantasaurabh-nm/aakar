@@ -11,3 +11,4 @@ test-results/
 .turbo/
 *.tsbuildinfo
 .vite/
+_logs/
