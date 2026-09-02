@@ -23,5 +23,5 @@ export function isValidIdentifier(name: string): boolean {
 }
 
 export function tableName(moduleId: string, entity: string): string {
-  return `${moduleId}_${entity}`;
+  return `${moduleId.replace(/-/g, '_')}_${entity.replace(/-/g, '_')}`;
 }

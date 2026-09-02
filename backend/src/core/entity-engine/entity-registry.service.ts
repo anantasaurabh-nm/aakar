@@ -139,6 +139,7 @@ export class EntityRegistryService implements OnModuleInit {
         });
       }
     }
+    this.permissionsService.invalidateCache();
   }
 
   private async assertPermission(user: AuthenticatedUser, permission: string) {

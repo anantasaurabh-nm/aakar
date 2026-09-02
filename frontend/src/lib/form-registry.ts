@@ -20,6 +20,14 @@ export class UnknownFormTargetError extends Error {
 
 export async function fetchFormSection(target: string, params?: Record<string, unknown>): Promise<unknown> {
   const path = REGISTRY[target];
-  if (!path) throw new UnknownFormTargetError(target);
-  return apiClient.get(`${path}${buildQuery(params ?? {})}`);
+  if (path) return apiClient.get(`${path}${buildQuery(params ?? {})}`);
+
+  // Dynamic schema-driven entity form:
+  // e.g. "hello-module.greeting.form" -> ui/views/hello-module/greeting/form
+  const parts = target.split('.');
+  if (parts.length === 3 && parts[2] === 'form') {
+    return apiClient.get(`ui/views/${parts[0]}/${parts[1]}/form${buildQuery(params ?? {})}`);
+  }
+
+  throw new UnknownFormTargetError(target);
 }

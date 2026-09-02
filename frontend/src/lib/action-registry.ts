@@ -144,6 +144,63 @@ export class UnknownActionTargetError extends Error {
 
 export function getSubmitTarget(target: string): SubmitTarget {
   const entry = REGISTRY[target];
-  if (!entry) throw new UnknownActionTargetError(target);
-  return entry;
+  if (entry) return entry;
+
+  // Dynamic schema-driven entity submit targets:
+  // e.g. "hello-module.greeting.create" -> POST actions/hello-module/greeting
+  // e.g. "hello-module.greeting.update" -> PATCH actions/hello-module/greeting/:id
+  // e.g. "hello-module.greeting.delete" -> DELETE actions/hello-module/greeting/:id
+  // e.g. "hello-module.greeting.complete" -> PATCH actions/hello-module/greeting/:id/transition { to: 'approved' }
+  // e.g. "hello-module.greeting.transition" -> PATCH actions/hello-module/greeting/:id/transition { to: values.to }
+  const parts = target.split('.');
+  if (parts.length === 3) {
+    const [mod, ent, op] = parts;
+    const baseInvalidates = [`${mod}.${ent}`, `${mod}.${ent}.insights`];
+
+    switch (op) {
+      case 'create':
+        return {
+          invalidates: baseInvalidates,
+          execute: (values) => apiClient.post(`actions/${mod}/${ent}`, omit(values, ['id'])),
+        };
+      case 'update':
+        return {
+          invalidates: baseInvalidates,
+          execute: (values) => apiClient.patch(`actions/${mod}/${ent}/${values.id}`, omit(values, ['id'])),
+        };
+      case 'delete':
+        return {
+          invalidates: baseInvalidates,
+          execute: (values) => apiClient.delete(`actions/${mod}/${ent}/${values.id}`),
+        };
+      case 'complete':
+        return {
+          invalidates: baseInvalidates,
+          execute: (values) => apiClient.patch(`actions/${mod}/${ent}/${values.id}/transition`, { to: 'approved' }),
+        };
+      case 'submit':
+        return {
+          invalidates: baseInvalidates,
+          execute: (values) => apiClient.patch(`actions/${mod}/${ent}/${values.id}/transition`, { to: 'submitted' }),
+        };
+      case 'cancel':
+        return {
+          invalidates: baseInvalidates,
+          execute: (values) => apiClient.patch(`actions/${mod}/${ent}/${values.id}/transition`, { to: 'cancelled' }),
+        };
+      case 'reopen':
+      case 'draft':
+        return {
+          invalidates: baseInvalidates,
+          execute: (values) => apiClient.patch(`actions/${mod}/${ent}/${values.id}/transition`, { to: 'draft' }),
+        };
+      case 'transition':
+        return {
+          invalidates: baseInvalidates,
+          execute: (values) => apiClient.patch(`actions/${mod}/${ent}/${values.id}/transition`, { to: values.to }),
+        };
+    }
+  }
+
+  throw new UnknownActionTargetError(target);
 }

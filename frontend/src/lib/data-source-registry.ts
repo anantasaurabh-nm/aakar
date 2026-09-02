@@ -34,6 +34,18 @@ export class UnknownDataSourceError extends Error {
 
 export async function fetchDataSource(source: string, params?: Record<string, unknown>): Promise<unknown> {
   const fn = REGISTRY[source];
-  if (!fn) throw new UnknownDataSourceError(source);
-  return fn(params);
+  if (fn) return fn(params);
+
+  // Dynamic schema-driven entity data sources:
+  // e.g. "hello-module.greeting" -> data/hello-module/greeting
+  // e.g. "hello-module.greeting.insights" -> data/hello-module/greeting/insights
+  const parts = source.split('.');
+  if (parts.length === 3 && parts[2] === 'insights') {
+    return apiClient.get(`data/${parts[0]}/${parts[1]}/insights${buildQuery(params ?? {})}`);
+  }
+  if (parts.length === 2) {
+    return apiClient.get(`data/${parts[0]}/${parts[1]}${buildQuery(params ?? {})}`);
+  }
+
+  throw new UnknownDataSourceError(source);
 }

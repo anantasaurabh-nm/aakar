@@ -95,13 +95,16 @@ export class EntityTableService {
       await this.prisma.$executeRawUnsafe(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${col} ${type}${def}`);
     }
 
+    const cleanModule = moduleId.replace(/-/g, '_');
+    const cleanEntity = entityKey.replace(/-/g, '_');
+
     await this.prisma.$executeRawUnsafe(
-      `CREATE INDEX IF NOT EXISTS ${quotedIdent(`idx_${moduleId}_${entityKey}_tenant_date`)} ON ${table} (tenant_id, record_date)`,
+      `CREATE INDEX IF NOT EXISTS ${quotedIdent(`idx_${cleanModule}_${cleanEntity}_tenant_date`)} ON ${table} (tenant_id, record_date)`,
     );
     await this.prisma.$executeRawUnsafe(
-      `CREATE INDEX IF NOT EXISTS ${quotedIdent(`idx_${moduleId}_${entityKey}_tenant_status`)} ON ${table} (tenant_id, record_status)`,
+      `CREATE INDEX IF NOT EXISTS ${quotedIdent(`idx_${cleanModule}_${cleanEntity}_tenant_status`)} ON ${table} (tenant_id, record_status)`,
     );
 
-    this.logger.log(`Ensured table "${moduleId}_${entityKey}"`);
+    this.logger.log(`Ensured table "${cleanModule}_${cleanEntity}"`);
   }
 }
