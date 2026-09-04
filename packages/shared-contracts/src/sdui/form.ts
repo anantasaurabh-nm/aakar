@@ -45,11 +45,28 @@ export const FormFieldSchema = z.object({
 });
 export type SDUIFormField = z.infer<typeof FormFieldSchema>;
 
+export const FormGroupSchema = z.object({
+  id: z.string().optional(),
+  title: z.string().optional(),
+  description: z.string().optional(),
+  columns: z.number().min(1).max(4).optional(),
+  fields: z.array(z.string()),
+});
+export type SDUIFormGroup = z.infer<typeof FormGroupSchema>;
+
+export const FormLayoutSchema = z.object({
+  type: z.enum(['stack', 'grid']).default('stack'),
+  columns: z.number().min(1).max(4).default(1),
+  groups: z.array(FormGroupSchema).optional(),
+});
+export type SDUIFormLayout = z.infer<typeof FormLayoutSchema>;
+
 export const FormConfigSchema = z.object({
   fields: z.array(FormFieldSchema).default([]),
   submitAction: z.object({
     type: z.literal('submit'),
     target: z.string(),
   }),
+  layout: FormLayoutSchema.optional(),
 });
 export type FormConfig = z.infer<typeof FormConfigSchema>;

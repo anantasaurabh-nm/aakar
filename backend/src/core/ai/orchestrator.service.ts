@@ -6,6 +6,7 @@ import { ResponsePlannerService } from './response-planner.service';
 import { ModelRouterService, ModelNotConfiguredError } from './model-router.service';
 import { classifyWithRules } from './rule-based-classifier';
 import { AiFlowLoggerService } from './ai-flow-logger.service';
+import { ReferenceResolverService } from '../entity-engine/reference-resolver.service';
 import type { AuthenticatedUser } from '../auth/authenticated-user.interface';
 
 import { buildClassifierPrompt } from './prompts';
@@ -26,6 +27,7 @@ export class OrchestratorService {
     private readonly responsePlanner: ResponsePlannerService,
     private readonly entityRegistry: EntityRegistryService,
     private readonly aiLogger: AiFlowLoggerService,
+    private readonly referenceResolver: ReferenceResolverService,
   ) {}
 
   private async classify(message: string, user: AuthenticatedUser): Promise<OrchestratorDecision | null> {
@@ -133,6 +135,66 @@ export class OrchestratorService {
         response: fallbackTextResponse,
       });
       return fallbackTextResponse;
+    }
+
+    // Generic Reference Resolution: Check if target entity has reference fields
+    const [mod, ent] = decision.capability.split('.');
+    let entityDef: import('@erp/shared-contracts').EntityDefinition | undefined;
+    try {
+      if (mod && ent) {
+        entityDef = this.entityRegistry.getEntityDefinition(mod, ent);
+      }
+    } catch {
+      // Non-schema capability or core action
+    }
+
+    if (entityDef) {
+      const assigneeMatch = message.match(/\b(?:for|assigned to|assign to|in)\s+([a-zA-Z0-9_.-]+)\b/i);
+      const nonPersonWords = new Set([
+        'today', 'tomorrow', 'yesterday', 'this_week', 'this_month', 'last_week', 'last_month',
+        'week', 'month', 'year', 'approval', 'review', 'me', 'my', 'all', 'user', 'users',
+        'task', 'tasks', 'note', 'notes', 'general', 'engineering', 'urgent', 'high', 'medium', 'low',
+        'draft', 'submitted', 'approved', 'cancelled', 'deleted',
+      ]);
+
+      if (assigneeMatch && !nonPersonWords.has(assigneeMatch[1].toLowerCase())) {
+        const targetName = assigneeMatch[1];
+        for (const [fieldKey, field] of Object.entries(entityDef.fields)) {
+          if (field.type === 'reference' && field.entity) {
+            const searchResult = await this.referenceResolver.searchReference(
+              field.entity,
+              user.tenantId,
+              targetName,
+              field.displayField,
+            );
+
+            if (searchResult.matchedId) {
+              decision.parameters[fieldKey] = searchResult.matchedId;
+              if (typeof decision.parameters.title === 'string') {
+                decision.parameters.title = decision.parameters.title
+                  .replace(new RegExp(`\\s+(?:for|assigned to|assign to|in)\\s+${targetName}`, 'i'), '')
+                  .replace(/^(?:titled|called|named)\s+/i, '')
+                  .trim();
+              }
+              break;
+            } else {
+              const notFoundResponse: ChatResponse = {
+                mode: 'text',
+                text:
+                  field.entity.includes('user')
+                    ? `User '${targetName}' was not found in the system. Available users are: ${searchResult.availableLabels.join(', ')}. Would you like to assign it to one of them?`
+                    : `Record '${targetName}' was not found in ${searchResult.entityLabel}. Available options are: ${searchResult.availableLabels.slice(0, 8).join(', ')}. Would you like to select one of them?`,
+              };
+              this.aiLogger.logStep('RESPONSE_PLANNING', {
+                status: 'REFERENCE_NOT_FOUND',
+                targetName,
+                response: notFoundResponse,
+              });
+              return notFoundResponse;
+            }
+          }
+        }
+      }
     }
 
     try {

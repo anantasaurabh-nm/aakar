@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const DashboardCardSchema = z.object({
   id: z.string(),
   label: z.string(),
-  value: z.union([z.string(), z.number()]),
+  value: z.union([z.string(), z.number()]).optional().default(0),
   delta: z.string().optional(),
   deltaTone: z.enum(['positive', 'negative', 'neutral']).optional(),
   accent: z.enum(['indigo', 'pink', 'emerald', 'amber', 'cyan']).optional(),

@@ -41,11 +41,14 @@ export const TableSectionSchema = BaseSectionSchema.extend({
   type: z.literal('table'),
   config: TableConfigSchema,
 });
+export type TableSection = z.infer<typeof TableSectionSchema>;
 
 export const FormSectionSchema = BaseSectionSchema.extend({
   type: z.literal('form'),
   config: FormConfigSchema,
+  relatedSections: z.array(TableSectionSchema).optional(),
 });
+export type FormSection = z.infer<typeof FormSectionSchema>;
 
 export const SettingsSectionSchema = BaseSectionSchema.extend({
   type: z.literal('settings'),

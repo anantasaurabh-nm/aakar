@@ -5,6 +5,8 @@ import { DynamicForm } from './DynamicForm';
 import { AppsGrid } from './AppsGrid';
 import { SettingsView } from './SettingsView';
 
+import { FormSection } from './FormSection';
+
 /**
  * Controlled section-type -> component registry (SDUI PRD §2, stack.md §3.2).
  * The server sends `type: "table"`; only this map decides that means DataTable.
@@ -25,11 +27,7 @@ export function SDUISectionRenderer({ section }: { section: SDUISectionOrInvalid
     case 'table':
       return section.config.presentation === 'grid' ? <AppsGrid /> : <DataTable section={section} />;
     case 'form':
-      return (
-        <div style={{ padding: 20 }}>
-          <DynamicForm config={section.config} onCancel={() => {}} onSuccess={() => {}} />
-        </div>
-      );
+      return <FormSection section={section} />;
     case 'settings':
       return <SettingsView section={section} />;
     default:

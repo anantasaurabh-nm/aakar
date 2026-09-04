@@ -89,7 +89,7 @@ export function SectionRotator({ sections, onActiveSectionChange, renderSection 
     const badge = 'badge' in section ? section.badge : undefined;
     const badgeType = 'badgeType' in section ? section.badgeType : undefined;
     return (
-      <div key={`heading-${sectionKey}`} style={{ height: 32, overflow: 'hidden', flexShrink: 0 }}>
+      <div key={`heading-${sectionKey}`} className="no-print section-rotator-heading" style={{ height: 32, overflow: 'hidden', flexShrink: 0 }}>
         <AccordionDivider label={section.label} badge={badge} badgeType={badgeType} isCollapsed={isCollapsed} onClick={onClick} />
       </div>
     );
@@ -103,6 +103,7 @@ export function SectionRotator({ sections, onActiveSectionChange, renderSection 
     return (
       <div
         key={`pane-${sectionKey}`}
+        className={`section-rotator-pane ${slot !== 'active' ? 'no-print' : 'active-print-pane'}`}
         ref={(el) => {
           if (slot === 'active' || slot === 'next') paneRefs.current[sectionKey] = el;
         }}
@@ -125,15 +126,16 @@ export function SectionRotator({ sections, onActiveSectionChange, renderSection 
 
   if (!hasMultipleSections) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - var(--header-height))', width: '100%', overflow: 'hidden' }}>
+      <div className="section-rotator-container" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - var(--header-height))', width: '100%', overflow: 'hidden' }}>
         {renderPane(firstKey, 'active')}
       </div>
     );
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - var(--header-height))', width: '100%', overflow: 'hidden', position: 'relative' }}>
+    <div className="section-rotator-container" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - var(--header-height))', width: '100%', overflow: 'hidden', position: 'relative' }}>
       <div
+        className="section-rotator-track"
         onTransitionEnd={handleTransitionEnd}
         style={{
           display: 'flex',

@@ -17,6 +17,7 @@ export function AccordionDivider({ label, isCollapsed = true, onClick, badge, ba
 
   return (
     <div
+      className="no-print accordion-divider"
       onClick={onClick || undefined}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}

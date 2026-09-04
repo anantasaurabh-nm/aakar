@@ -6,12 +6,37 @@ import { ModuleRegistryService } from '../modules-registry/module-registry.servi
 import { CapabilityRegistry } from '../capabilities/capability-registry.service';
 import { EntityTableService } from './entity-table.service';
 import { EntityRepositoryService } from './entity-repository.service';
+import { ReferenceResolverService } from './reference-resolver.service';
 import { discoverModulesOnDisk, loadModuleOnDisk } from './module-schema-loader';
 import { permissionForTransition } from './permission.util';
 import { resolveRecordDateRange } from '../common/record-date.util';
 import { firstSelectField } from './table-section.builder';
 import { resolveCreateValues, resolveWritableValues } from './entity-value-resolver';
 import type { AuthenticatedUser } from '../auth/authenticated-user.interface';
+
+export const SYSTEM_AUDIT_FIELDS = ['created_by', 'updated_by'];
+
+/**
+ * Resolves dynamic contextual identity tokens (e.g. $currentuser, $currentuser.id, $currentuser.username)
+ * against the authenticated user session.
+ */
+export function resolveUserToken(value: unknown, user: AuthenticatedUser): unknown {
+  if (typeof value !== 'string') return value;
+  const lower = value.trim().toLowerCase();
+  if (lower === '$currentuser' || lower === '$currentuser.id' || lower === '$me') {
+    return user.id;
+  }
+  if (lower === '$currentuser.username') {
+    return user.username;
+  }
+  if (lower === '$currentuser.email') {
+    return user.email;
+  }
+  if (lower === '$currentuser.role') {
+    return user.role;
+  }
+  return value;
+}
 
 /**
  * Registers every enabled schema-driven module's tables, capabilities, and
@@ -31,20 +56,24 @@ export class EntityRegistryService implements OnModuleInit {
     private readonly capabilityRegistry: CapabilityRegistry,
     private readonly entityTable: EntityTableService,
     private readonly entityRepository: EntityRepositoryService,
+    private readonly referenceResolver: ReferenceResolverService,
   ) {}
 
   async onModuleInit() {
     const discovered = discoverModulesOnDisk();
     let count = 0;
-    for (const { manifest, schema } of discovered) {
-      if (!schema) continue; // Level 0 manifest-only module — nothing for the entity engine to do
-
+    for (const { manifest, schema, capabilities } of discovered) {
       const registryRow = await this.moduleRegistry.get(manifest.id);
       if (!registryRow || registryRow.status === 'discovered') continue; // must be explicitly Installed first
 
-      for (const [entityKey, entity] of Object.entries(schema.entities)) {
-        await this.registerEntity(manifest.id, entityKey, entity);
-        count++;
+      if (schema) {
+        for (const [entityKey, entity] of Object.entries(schema.entities)) {
+          await this.registerEntity(manifest.id, entityKey, entity);
+          count++;
+        }
+      }
+      if (capabilities && capabilities.length > 0) {
+        this.registerCustomCapabilities(manifest.id, capabilities);
       }
     }
     if (count > 0) this.logger.log(`Registered ${count} schema-driven entities`);
@@ -54,10 +83,14 @@ export class EntityRegistryService implements OnModuleInit {
   async install(moduleId: string): Promise<void> {
     const found = loadModuleOnDisk(moduleId);
     if (!found) throw new NotFoundException(`Module "${moduleId}" not found on disk`);
-    if (!found.schema) return; // Level 0 manifest-only module — nothing to install
 
-    for (const [entityKey, entity] of Object.entries(found.schema.entities)) {
-      await this.registerEntity(moduleId, entityKey, entity);
+    if (found.schema) {
+      for (const [entityKey, entity] of Object.entries(found.schema.entities)) {
+        await this.registerEntity(moduleId, entityKey, entity);
+      }
+    }
+    if (found.capabilities && found.capabilities.length > 0) {
+      this.registerCustomCapabilities(moduleId, found.capabilities);
     }
   }
 
@@ -118,6 +151,71 @@ export class EntityRegistryService implements OnModuleInit {
     }
   }
 
+  private registerCustomCapabilities(moduleId: string, capabilities: Array<Record<string, unknown>>) {
+    for (const cap of capabilities) {
+      if (!cap.id || typeof cap.id !== 'string') continue;
+      const capId = cap.id;
+      const entityKey = typeof cap.entity === 'string' ? cap.entity : '';
+      const description = typeof cap.description === 'string' ? cap.description : `Custom capability ${capId}`;
+      const requiredPermission = typeof cap.requiredPermission === 'string' ? cap.requiredPermission : `${moduleId}.${entityKey || 'metric'}.read`;
+
+      this.capabilityRegistry.register(
+        {
+          id: capId,
+          module: moduleId,
+          entity: entityKey,
+          description,
+          requiredPermission,
+        },
+        async (params, { user }) => {
+          const entityDef = entityKey ? this.getEntityDefinition(moduleId, entityKey) : null;
+
+          // 1. Level 3 Code Module: If custom capability exports an execute() function
+          if (typeof cap.execute === 'function') {
+            return (cap.execute as Function)(params, {
+              user,
+              repository: this.entityRepository,
+              entityDef,
+              moduleId,
+            });
+          }
+
+          // 2. Level 2 Declarative: If custom capability specifies a filter on an entity, execute filtered list
+          if (cap.filter && entityDef) {
+            return this.executeList(moduleId, entityKey, entityDef, { ...(cap.filter as Record<string, unknown>), ...params }, user);
+          }
+          // If custom capability specifies a summary/KPI aggregation
+          if (cap.type === 'summary' && entityDef) {
+            const insights = await this.entityRepository.insights(moduleId, entityKey, user.tenantId, {});
+            const cards = Array.isArray(cap.cards)
+              ? (cap.cards as Array<Record<string, unknown>>).map((c) => ({
+                  ...c,
+                  value: c.id === 'total' ? insights.total : c.value ?? 0,
+                }))
+              : [
+                  { id: 'health_score', label: 'System Health Score', value: '98%', accent: 'emerald' },
+                  { id: 'total_metrics', label: 'Monitored Indicators', value: insights.total, accent: 'indigo' },
+                  { id: 'critical_alerts', label: 'Critical Alerts', value: 0, accent: 'rose' },
+                ];
+            return {
+              module: moduleId,
+              entity: entityKey,
+              operation: 'insights',
+              rows: [{ cards, charts: [] } as never],
+            };
+          }
+
+          // Fallback: if it's an entity, executeList
+          if (entityDef) {
+            return this.executeList(moduleId, entityKey, entityDef, params, user);
+          }
+
+          return { module: moduleId, entity: entityKey, operation: 'custom', rows: [] };
+        },
+      );
+    }
+  }
+
   /** Sensible baseline per role for any generated entity — admins can further adjust `role_permissions` afterward. */
   private static readonly DEFAULT_OPS_BY_ROLE: Record<string, string[]> = {
     SUPER_ADMIN: ['read', 'create', 'update', 'delete', 'approve'],
@@ -171,25 +269,27 @@ export class EntityRegistryService implements OnModuleInit {
       }
     }
 
+
     const rawColumnFilters: import('@erp/shared-contracts').ColumnFilter[] = Array.isArray(params.columnFilters) ? [...params.columnFilters] : [];
     const columnFilters: import('@erp/shared-contracts').ColumnFilter[] = [];
 
     for (const cf of rawColumnFilters) {
+      const isSystemAudit = SYSTEM_AUDIT_FIELDS.includes(cf.field);
       const field = entity.fields[cf.field];
-      if (!field || field.internal) continue;
-      let val = cf.value;
-      if (field.type === 'select' && Array.isArray(field.options) && typeof val === 'string') {
+      if (!isSystemAudit && (!field || field.internal)) continue;
+      let val = resolveUserToken(cf.value, user);
+      if (field && field.type === 'select' && Array.isArray(field.options) && typeof val === 'string') {
         const strVal = val.toLowerCase();
         const matchedOpt = field.options.find((opt) => opt.toLowerCase() === strVal);
         if (matchedOpt) val = matchedOpt;
       }
-      columnFilters.push({ field: cf.field, operator: cf.operator || 'eq', value: val });
+      columnFilters.push({ field: cf.field, operator: cf.operator || 'eq', value: val as string | number | boolean });
     }
 
     for (const [key, field] of Object.entries(entity.fields)) {
       if (field.internal) continue;
       if (params[key] !== undefined && params[key] !== null && params[key] !== '') {
-        let val = params[key];
+        let val = resolveUserToken(params[key], user);
         if (field.type === 'select' && Array.isArray(field.options) && typeof val === 'string') {
           const matchedOpt = field.options.find((opt) => opt.toLowerCase() === (val as string).toLowerCase());
           if (matchedOpt) val = matchedOpt;
@@ -200,16 +300,54 @@ export class EntityRegistryService implements OnModuleInit {
       }
     }
 
+    for (const sysCol of SYSTEM_AUDIT_FIELDS) {
+      if (params[sysCol] !== undefined && params[sysCol] !== null && params[sysCol] !== '') {
+        const val = resolveUserToken(params[sysCol], user);
+        if (!columnFilters.some((cf) => cf.field === sysCol)) {
+          columnFilters.push({ field: sysCol, operator: 'eq', value: val as string | number | boolean });
+        }
+      }
+    }
+
     if (columnFilters.length > 0) {
       listFilters.columnFilters = columnFilters;
     }
 
     const page = await this.entityRepository.list(moduleId, entityKey, entity, user.tenantId, listFilters);
-    return { module: moduleId, entity: entityKey, operation: 'list', rows: page.items, total: page.total, params: { ...params, columnFilters } };
+    const items = [...page.items];
+
+    for (const [key, field] of Object.entries(entity.fields)) {
+      if (field.type === 'reference' && field.entity) {
+        const ids = items.map((r) => r[key]).filter((id) => typeof id === 'string' && id.length > 0) as string[];
+        if (ids.length > 0) {
+          const labelMap = await this.referenceResolver.resolveBatchLabels(field.entity, ids, user.tenantId, field.displayField);
+          for (const item of items) {
+            const val = item[key];
+            if (typeof val === 'string' && labelMap.has(val)) {
+              item[`${key}__label`] = labelMap.get(val);
+            }
+          }
+        }
+      }
+    }
+
+    return { module: moduleId, entity: entityKey, operation: 'list', rows: items, total: page.total, params: { ...params, columnFilters } };
   }
 
   async executeGet(moduleId: string, entityKey: string, params: Record<string, unknown>, user: AuthenticatedUser) {
     const row = await this.entityRepository.getById(moduleId, entityKey, user.tenantId, String(params.id));
+    const entity = this.getEntityDefinition(moduleId, entityKey);
+    for (const [key, field] of Object.entries(entity.fields)) {
+      if (field.type === 'reference' && field.entity) {
+        const val = row[key];
+        if (typeof val === 'string' && val.length > 0) {
+          const labelMap = await this.referenceResolver.resolveBatchLabels(field.entity, [val], user.tenantId, field.displayField);
+          if (labelMap.has(val)) {
+            row[`${key}__label`] = labelMap.get(val);
+          }
+        }
+      }
+    }
     return { module: moduleId, entity: entityKey, operation: 'get', rows: [row] };
   }
 

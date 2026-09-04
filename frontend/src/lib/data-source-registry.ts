@@ -36,6 +36,13 @@ export async function fetchDataSource(source: string, params?: Record<string, un
   const fn = REGISTRY[source];
   if (fn) return fn(params);
 
+  // Explicit capability-backed data source:
+  // e.g. "capabilities.hello-datasources.system-health" -> data/capabilities/hello-datasources.system-health
+  if (source.startsWith('capabilities.')) {
+    const capId = source.slice('capabilities.'.length);
+    return apiClient.get(`data/capabilities/${capId}${buildQuery(params ?? {})}`);
+  }
+
   // Dynamic schema-driven entity data sources:
   // e.g. "hello-module.greeting" -> data/hello-module/greeting
   // e.g. "hello-module.greeting.insights" -> data/hello-module/greeting/insights
@@ -47,5 +54,10 @@ export async function fetchDataSource(source: string, params?: Record<string, un
     return apiClient.get(`data/${parts[0]}/${parts[1]}${buildQuery(params ?? {})}`);
   }
 
-  throw new UnknownDataSourceError(source);
+  // Fallback: check if source maps directly to a registered capability
+  try {
+    return await apiClient.get(`data/capabilities/${source}${buildQuery(params ?? {})}`);
+  } catch {
+    throw new UnknownDataSourceError(source);
+  }
 }

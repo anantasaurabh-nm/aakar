@@ -33,10 +33,11 @@ export function Dashboard({ section }: { section: DashboardSection }) {
   const hasDataSource = Boolean(section.data?.source);
   const queryKey = ['ds', section.data?.source, filters];
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, isFetching } = useQuery({
     queryKey,
     queryFn: () => fetchDataSource(section.data!.source, { ...section.data?.params, ...filters }),
     enabled: hasDataSource,
+    placeholderData: (previousData) => previousData,
   });
 
   const config: DashboardConfig = hasDataSource

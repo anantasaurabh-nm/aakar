@@ -539,7 +539,7 @@ export function DataTable({ section }: { section: TableSection }) {
           id: col.key,
           header: col.label,
           enableSorting: col.sortable !== false,
-          cell: (ctx) => <Cell type={col.type} value={ctx.getValue()} row={ctx.row.original} />,
+          cell: (ctx) => <Cell type={col.type} value={ctx.getValue()} row={ctx.row.original} columnKey={col.key} />,
         }),
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -683,6 +683,11 @@ export function DataTable({ section }: { section: TableSection }) {
   const filterItems = (section.toolbar ?? []).filter((item) => item.type === 'filter');
 
   if (isDetailView && viewState.mode === 'record' && moduleId && entityKey) {
+    const recordIds = rows.map((r) => String(r.id)).filter(Boolean);
+    const currentIndex = viewState.recordId ? recordIds.indexOf(String(viewState.recordId)) : -1;
+    const hasPrev = currentIndex > 0;
+    const hasNext = currentIndex >= 0 && currentIndex < recordIds.length - 1;
+
     return (
       <RecordView
         module={moduleId}
@@ -690,6 +695,12 @@ export function DataTable({ section }: { section: TableSection }) {
         recordId={viewState.recordId}
         startInEditMode={viewState.startInEditMode}
         onClose={() => setViewState({ mode: 'list' })}
+        hasPrev={hasPrev}
+        hasNext={hasNext}
+        recordIndex={currentIndex >= 0 ? currentIndex + 1 : undefined}
+        totalRecords={recordIds.length > 0 ? recordIds.length : undefined}
+        onPrev={hasPrev ? () => setViewState({ mode: 'record', recordId: recordIds[currentIndex - 1] }) : undefined}
+        onNext={hasNext ? () => setViewState({ mode: 'record', recordId: recordIds[currentIndex + 1] }) : undefined}
       />
     );
   }
@@ -1495,22 +1506,23 @@ function summarizeSubmitResult(result: unknown): string | null {
   return null;
 }
 
-function Cell({ type, value, row: _row }: { type: string; value: unknown; row?: Record<string, unknown> }) {
-  if (value === null || value === undefined || value === '') return <span style={{ color: 'var(--text-tertiary)' }}>—</span>;
+function Cell({ type, value, row, columnKey }: { type: string; value: unknown; row?: Record<string, unknown>; columnKey?: string }) {
+  const displayValue = (columnKey && row?.[`${columnKey}__label`]) ?? value;
+  if (displayValue === null || displayValue === undefined || displayValue === '') return <span style={{ color: 'var(--text-tertiary)' }}>—</span>;
 
   switch (type) {
     case 'badge':
-      return <Badge>{String(value)}</Badge>;
+      return <Badge>{String(displayValue)}</Badge>;
     case 'boolean':
-      return <Badge tone={value ? 'success' : 'neutral'}>{value ? 'Yes' : 'No'}</Badge>;
+      return <Badge tone={displayValue ? 'success' : 'neutral'}>{displayValue ? 'Yes' : 'No'}</Badge>;
     case 'date':
-      return <span>{String(value)}</span>;
+      return <span>{String(displayValue)}</span>;
     case 'datetime':
-      return <span>{new Date(String(value)).toLocaleString()}</span>;
+      return <span>{new Date(String(displayValue)).toLocaleString()}</span>;
     case 'tags':
       return (
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-          {(Array.isArray(value) ? value : [value]).map((v) => (
+          {(Array.isArray(displayValue) ? displayValue : [displayValue]).map((v) => (
             <Badge key={String(v)} tone="neutral">
               {String(v)}
             </Badge>
@@ -1518,6 +1530,6 @@ function Cell({ type, value, row: _row }: { type: string; value: unknown; row?: 
         </div>
       );
     default:
-      return <span>{String(value)}</span>;
+      return <span>{String(displayValue)}</span>;
   }
 }

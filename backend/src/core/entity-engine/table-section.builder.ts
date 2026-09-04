@@ -68,18 +68,26 @@ function toFormFieldType(type: EntityFieldType): FieldType {
 }
 
 /** Generated form fields for the "new/edit record" modal — never includes `internal` fields. */
-export function formFieldsFromSchema(entity: EntityDefinition, existing?: Record<string, unknown>): SDUIFormField[] {
+export function formFieldsFromSchema(
+  entity: EntityDefinition,
+  existing?: Record<string, unknown>,
+  dynamicOptions?: Record<string, { label: string; value: string }[]>,
+): SDUIFormField[] {
   const fields: SDUIFormField[] = Object.entries(entity.fields)
     .filter(([, f]) => !f.internal)
-    .map(([key, f]) => ({
-      name: key,
-      label: f.label ?? key,
-      type: toFormFieldType(f.type),
-      required: f.required,
-      defaultValue: existing?.[key] ?? f.default ?? '',
-      options: f.options?.map((o) => ({ label: o, value: o })),
-      secret: false,
-    }));
+    .map(([key, f]) => {
+      const explicitOptions = f.options?.map((o) => ({ label: o, value: o }));
+      const options = dynamicOptions?.[key] ?? explicitOptions;
+      return {
+        name: key,
+        label: f.label ?? key,
+        type: toFormFieldType(f.type),
+        required: f.required,
+        defaultValue: existing?.[key] ?? f.default ?? '',
+        options,
+        secret: false,
+      };
+    });
   return [
     { name: 'id', label: 'id', type: 'hidden', required: false, defaultValue: existing?.id, secret: false },
     ...fields,

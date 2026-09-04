@@ -167,6 +167,54 @@ textarea {
   border-radius: 8px;
 }
 
+.print-only {
+  display: none;
+}
+
+@media print {
+  /* Hide all interactive app shell chrome, navigation, chat, accordion dividers, section rotator headers, and buttons */
+  header,
+  nav,
+  aside,
+  .no-print,
+  .global-nav,
+  .app-header,
+  .ai-chat-panel,
+  .accordion-divider,
+  .section-rotator-heading,
+  button {
+    display: none !important;
+  }
+
+  body {
+    background: #ffffff !important;
+    background-image: none !important;
+    color: #0f172a !important;
+  }
+
+  /* Reset section rotator positioning and overflow for clean document printing */
+  .section-rotator-container,
+  .section-rotator-track,
+  .active-print-pane {
+    height: auto !important;
+    overflow: visible !important;
+    transform: none !important;
+  }
+
+  .record-view-pane {
+    background: #ffffff !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+}
+
 @keyframes spin {
   from {
     transform: rotate(0deg);

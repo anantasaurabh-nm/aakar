@@ -35,12 +35,14 @@ export const EntityFieldSchema = z.object({
   default: z.union([z.string(), z.number(), z.boolean()]).optional(),
   options: z.array(z.string()).optional(), // for type: 'select'
   entity: z.string().optional(), // for type: 'reference' — the referenced "<module>.<entity>"
+  displayField: z.string().optional(), // for type: 'reference' — optional override for the field in the target entity to display
   description: z.string().optional(), // semantic metadata for AI discovery (Amendment 01 §12)
 });
 export type EntityField = z.infer<typeof EntityFieldSchema>;
 
 export const EntityDefinitionSchema = z.object({
   label: z.string().optional(),
+  displayField: z.string().optional(), // the default title/label field of this entity when referenced by others
   fields: z.record(SchemaIdentifierSchema, EntityFieldSchema),
   readOnly: z.boolean().default(false),
 });
