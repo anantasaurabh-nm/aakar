@@ -1,0 +1,240 @@
+{
+  "id": "connection-form",
+  "label": "Connection",
+  "type": "form",
+  "toolbar": [
+    {
+      "id": "cancel",
+      "type": "action",
+      "label": "Cancel",
+      "action": { "type": "cancel" }
+    },
+    {
+      "id": "save",
+      "type": "action",
+      "label": "Save",
+      "action": { "type": "submit" }
+    }
+  ],
+  "config": {
+    "layout": {
+      "type": "grid",
+      "columns": 2,
+      "groups": [
+        {
+          "id": "general",
+          "title": "Connection Details",
+          "description": "Choose your integration vendor and give this connection a descriptive label",
+          "columns": 2,
+          "fields": ["name", "provider"]
+        },
+        {
+          "id": "group_trello",
+          "title": "Trello Credentials & Setup",
+          "description": "Manage boards, lists, and cards on Trello",
+          "columns": 2,
+          "fields": ["trello_apiKey", "trello_token", "trello_secret"],
+          "showWhen": {
+            "field": "provider",
+            "operator": "eq",
+            "value": "trello"
+          }
+        },
+        {
+          "id": "group_stripe",
+          "title": "Stripe Credentials & Setup",
+          "description": "Payments, subscriptions, invoices, and customers",
+          "columns": 1,
+          "fields": ["stripe_secretKey"],
+          "showWhen": {
+            "field": "provider",
+            "operator": "eq",
+            "value": "stripe"
+          }
+        },
+        {
+          "id": "group_github",
+          "title": "GitHub Credentials & Setup",
+          "description": "Repositories, issues, pull requests, and webhooks",
+          "columns": 1,
+          "fields": ["github_token"],
+          "showWhen": {
+            "field": "provider",
+            "operator": "eq",
+            "value": "github"
+          }
+        },
+        {
+          "id": "group_slack",
+          "title": "Slack Credentials & Setup",
+          "description": "Team messaging, channel alerts, and bot integrations",
+          "columns": 1,
+          "fields": ["slack_botToken"],
+          "showWhen": {
+            "field": "provider",
+            "operator": "eq",
+            "value": "slack"
+          }
+        },
+        {
+          "id": "group_openai",
+          "title": "OpenAI Credentials & Setup",
+          "description": "GPT-4, embeddings, and generative AI models",
+          "columns": 1,
+          "fields": ["openai_apiKey"],
+          "showWhen": {
+            "field": "provider",
+            "operator": "eq",
+            "value": "openai"
+          }
+        },
+        {
+          "id": "group_custom",
+          "title": "Custom REST API / Webhook Setup",
+          "description": "Connect to any external service or internal microservice",
+          "columns": 2,
+          "fields": ["custom_baseUrl", "custom_authHeader", "custom_authSecret", "custom_customHeaders"],
+          "showWhen": {
+            "field": "provider",
+            "operator": "eq",
+            "value": "custom"
+          }
+        }
+      ]
+    },
+    "fields": [
+      {
+        "name": "id",
+        "label": "ID",
+        "type": "hidden"
+      },
+      {
+        "name": "name",
+        "label": "Connection Name",
+        "type": "text",
+        "required": true,
+        "placeholder": "e.g. Production Trello or Main Stripe Store"
+      },
+      {
+        "name": "provider",
+        "label": "Service / Provider",
+        "type": "select",
+        "required": true,
+        "defaultValue": "trello",
+        "options": [
+          { "label": "Trello — Manage boards, lists, and cards on Trello", "value": "trello" },
+          { "label": "Stripe — Payments, subscriptions, invoices, and customers", "value": "stripe" },
+          { "label": "GitHub — Repositories, issues, pull requests, and webhooks", "value": "github" },
+          { "label": "Slack — Team messaging, channel alerts, and bot integrations", "value": "slack" },
+          { "label": "OpenAI — GPT-4, embeddings, and generative AI models", "value": "openai" },
+          { "label": "Custom REST API / Webhook — Connect to any custom API", "value": "custom" }
+        ]
+      },
+      {
+        "name": "trello_apiKey",
+        "label": "Developer API Key",
+        "type": "text",
+        "required": true,
+        "placeholder": "32-character key from trello.com/app-key",
+        "helpText": "Get your developer API key from https://trello.com/app-key",
+        "showWhen": { "field": "provider", "operator": "eq", "value": "trello" }
+      },
+      {
+        "name": "trello_token",
+        "label": "User Access Token",
+        "type": "password",
+        "required": true,
+        "secret": true,
+        "placeholder": "User authorization token",
+        "helpText": "Generate your token from the link at https://trello.com/app-key",
+        "showWhen": { "field": "provider", "operator": "eq", "value": "trello" }
+      },
+      {
+        "name": "trello_secret",
+        "label": "OAuth / Webhook Secret (optional)",
+        "type": "password",
+        "required": false,
+        "secret": true,
+        "placeholder": "Optional OAuth 1.0 secret",
+        "helpText": "Used for OAuth 1.0 signing or verifying X-Trello-Webhook signatures",
+        "showWhen": { "field": "provider", "operator": "eq", "value": "trello" }
+      },
+      {
+        "name": "stripe_secretKey",
+        "label": "Secret API Key",
+        "type": "password",
+        "required": true,
+        "secret": true,
+        "placeholder": "sk_live_... or sk_test_...",
+        "helpText": "Obtain from dashboard.stripe.com/apikeys",
+        "showWhen": { "field": "provider", "operator": "eq", "value": "stripe" }
+      },
+      {
+        "name": "github_token",
+        "label": "Personal Access Token",
+        "type": "password",
+        "required": true,
+        "secret": true,
+        "placeholder": "ghp_... or github_pat_...",
+        "helpText": "Generated from github.com/settings/tokens",
+        "showWhen": { "field": "provider", "operator": "eq", "value": "github" }
+      },
+      {
+        "name": "slack_botToken",
+        "label": "Bot User OAuth Token",
+        "type": "password",
+        "required": true,
+        "secret": true,
+        "placeholder": "xoxb-...",
+        "helpText": "From api.slack.com/apps -> OAuth & Permissions",
+        "showWhen": { "field": "provider", "operator": "eq", "value": "slack" }
+      },
+      {
+        "name": "openai_apiKey",
+        "label": "API Key",
+        "type": "password",
+        "required": true,
+        "secret": true,
+        "placeholder": "sk-proj-...",
+        "helpText": "From platform.openai.com/api-keys",
+        "showWhen": { "field": "provider", "operator": "eq", "value": "openai" }
+      },
+      {
+        "name": "custom_baseUrl",
+        "label": "Base URL (API Endpoint)",
+        "type": "text",
+        "required": true,
+        "placeholder": "https://api.example.com/v1",
+        "helpText": "Remote API endpoint URL",
+        "showWhen": { "field": "provider", "operator": "eq", "value": "custom" }
+      },
+      {
+        "name": "custom_authHeader",
+        "label": "Authentication Header Name (optional)",
+        "type": "text",
+        "defaultValue": "Authorization",
+        "placeholder": "Authorization or X-API-Key",
+        "showWhen": { "field": "provider", "operator": "eq", "value": "custom" }
+      },
+      {
+        "name": "custom_authSecret",
+        "label": "API Key / Secret Token (optional)",
+        "type": "password",
+        "secret": true,
+        "placeholder": "Secret token or key",
+        "showWhen": { "field": "provider", "operator": "eq", "value": "custom" }
+      },
+      {
+        "name": "custom_customHeaders",
+        "label": "Custom Headers (JSON, optional)",
+        "type": "textarea",
+        "placeholder": "{\n  \"X-Custom-Client\": \"my-client-id\"\n}",
+        "showWhen": { "field": "provider", "operator": "eq", "value": "custom" }
+      }
+    ],
+    "submitAction": {
+      "type": "submit",
+      "target": "connectors.connection.create"
+    }
+  }
+}

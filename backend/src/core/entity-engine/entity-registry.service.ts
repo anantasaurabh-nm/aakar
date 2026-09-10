@@ -390,8 +390,15 @@ export class EntityRegistryService implements OnModuleInit {
 
   async executeTransition(moduleId: string, entityKey: string, entity: EntityDefinition, params: Record<string, unknown>, user: AuthenticatedUser, to: import('@prisma/client').RecordStatus) {
     if (!to) throw new BadRequestException('Missing target status "to"');
-    await this.assertPermission(user, permissionForTransition(moduleId, entityKey, to));
-    const row = await this.entityRepository.transition(moduleId, entityKey, user.tenantId, user.id, String(params.id), to);
+    const row = await this.entityRepository.transition(
+      moduleId,
+      entityKey,
+      user.tenantId,
+      user.id,
+      String(params.id),
+      to,
+      { userRole: user.role, reason: typeof params.reason === 'string' ? params.reason : undefined },
+    );
     const label = entity.label ?? entityKey;
     const messages: Partial<Record<string, string>> = {
       approved: `Marked "${row.title ?? label}" as complete.`,

@@ -7,16 +7,30 @@ export const SDUI_SCHEMA_VERSION = '1.0';
 export const SDUIBrandSchema = z.object({
   name: z.string(),
   icon: z.string().optional(),
+  moduleId: z.string().optional(),
+  hasSettings: z.boolean().optional(),
 });
 export type SDUIBrand = z.infer<typeof SDUIBrandSchema>;
 
-export const SDUINavigationItemSchema = z.object({
-  id: z.string(),
-  label: z.string(),
-  icon: z.string().optional(),
-  action: SDUIActionSchema,
-});
-export type SDUINavigationItem = z.infer<typeof SDUINavigationItemSchema>;
+export interface SDUINavigationItem {
+  id: string;
+  label: string;
+  icon?: string;
+  badge?: string | number;
+  action?: z.infer<typeof SDUIActionSchema>;
+  items?: SDUINavigationItem[];
+}
+
+export const SDUINavigationItemSchema: z.ZodType<SDUINavigationItem> = z.lazy(() =>
+  z.object({
+    id: z.string(),
+    label: z.string(),
+    icon: z.string().optional(),
+    badge: z.union([z.string(), z.number()]).optional(),
+    action: SDUIActionSchema.optional(),
+    items: z.array(SDUINavigationItemSchema).optional(),
+  })
+);
 
 export const SDUINavigationSchema = z.object({
   items: z.array(SDUINavigationItemSchema).default([]),

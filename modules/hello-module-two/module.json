@@ -1,0 +1,10 @@
+{
+  "id": "hello-module-two",
+  "name": "Hello Module 2",
+  "version": "1.0.0",
+  "description": "A simple hello module demonstration",
+  "type": "native",
+  "surfaces": [
+    "app"
+  ]
+}

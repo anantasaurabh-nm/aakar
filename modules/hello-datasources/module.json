@@ -1,0 +1,11 @@
+{
+  "id": "hello-datasources",
+  "name": "Hello Data Sources",
+  "version": "1.0.0",
+  "description": "Canonical demonstration of SDUI data source patterns: standard entity tables, insights metrics, parameterized/sliced views, and platform sources.",
+  "type": "native",
+  "surfaces": ["app"],
+  "dependencies": {
+    "core": ">=1.0.0"
+  }
+}

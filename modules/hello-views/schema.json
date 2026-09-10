@@ -1,0 +1,33 @@
+{
+  "entities": {
+    "note": {
+      "label": "Note",
+      "displayField": "title",
+      "fields": {
+        "title": {
+          "type": "string",
+          "label": "Title",
+          "required": true,
+          "sortable": true,
+          "searchable": true
+        },
+        "content": {
+          "type": "text",
+          "label": "Content",
+          "searchable": true
+        },
+        "category": {
+          "type": "select",
+          "label": "Category",
+          "options": ["work", "personal", "ideas"]
+        },
+        "assigned_to": {
+          "type": "reference",
+          "entity": "core.user",
+          "displayField": "username",
+          "label": "Assigned To"
+        }
+      }
+    }
+  }
+}

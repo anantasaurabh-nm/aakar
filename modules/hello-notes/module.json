@@ -1,0 +1,11 @@
+{
+  "id": "hello-notes",
+  "name": "Hello Notes",
+  "version": "1.0.0",
+  "description": "Minimal schema-driven notes module demonstrating relationships, dependencies, and generated capabilities.",
+  "type": "native",
+  "surfaces": ["app"],
+  "dependencies": {
+    "core": ">=1.0.0"
+  }
+}

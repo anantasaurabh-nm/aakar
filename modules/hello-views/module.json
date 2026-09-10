@@ -1,0 +1,11 @@
+{
+  "id": "hello-views",
+  "name": "Hello Views",
+  "version": "1.0.0",
+  "description": "Canonical demonstration of custom SDUI presentation, heterogeneous sections (Dashboard + Table + Form), SectionRotator, and section-specific toolbars.",
+  "type": "native",
+  "surfaces": ["app"],
+  "dependencies": {
+    "core": ">=1.0.0"
+  }
+}

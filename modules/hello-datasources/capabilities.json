@@ -1,0 +1,15 @@
+[
+  {
+    "id": "hello-datasources.declarative-kpi",
+    "module": "hello-datasources",
+    "entity": "metric",
+    "description": "Declarative KPI summary defined purely in capabilities.json (Zero Code)",
+    "requiredPermission": "hello-datasources.metric.read",
+    "type": "summary",
+    "cards": [
+      { "id": "declarative_mode", "label": "Mode", "value": "Declarative JSON", "accent": "indigo" },
+      { "id": "total", "label": "Total Count", "accent": "emerald" },
+      { "id": "zero_code", "label": "Backend Code Needed", "value": "0 lines", "accent": "amber" }
+    ]
+  }
+]

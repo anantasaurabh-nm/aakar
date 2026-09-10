@@ -1,0 +1,28 @@
+{
+  "entities": {
+    "note": {
+      "label": "Note",
+      "displayField": "title",
+      "fields": {
+        "title": {
+          "type": "string",
+          "label": "Title",
+          "required": true,
+          "sortable": true,
+          "searchable": true
+        },
+        "content": {
+          "type": "text",
+          "label": "Content",
+          "searchable": true
+        },
+        "assigned_to": {
+          "type": "reference",
+          "entity": "core.user",
+          "displayField": "username",
+          "label": "Assigned To"
+        }
+      }
+    }
+  }
+}

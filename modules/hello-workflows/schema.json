@@ -1,0 +1,81 @@
+{
+  "entities": {
+    "request": {
+      "label": "Approval Request",
+      "displayField": "title",
+      "fields": {
+        "title": {
+          "type": "string",
+          "label": "Request Title",
+          "required": true,
+          "sortable": true,
+          "searchable": true
+        },
+        "category": {
+          "type": "select",
+          "label": "Category",
+          "options": ["equipment", "software", "travel", "training", "facilities"],
+          "required": true
+        },
+        "amount": {
+          "type": "number",
+          "label": "Estimated Cost ($)",
+          "required": true,
+          "sortable": true
+        },
+        "urgency": {
+          "type": "select",
+          "label": "Priority / Urgency",
+          "options": ["low", "medium", "high", "critical"],
+          "default": "medium"
+        },
+        "justification": {
+          "type": "text",
+          "label": "Business Justification",
+          "required": true,
+          "searchable": true
+        },
+        "submitted_by": {
+          "type": "reference",
+          "entity": "core.user",
+          "displayField": "username",
+          "label": "Submitted By",
+          "internal": true
+        },
+        "submitted_at": {
+          "type": "datetime",
+          "label": "Submitted Date",
+          "internal": true
+        },
+        "approved_by": {
+          "type": "reference",
+          "entity": "core.user",
+          "displayField": "username",
+          "label": "Approved By",
+          "internal": true
+        },
+        "approved_at": {
+          "type": "datetime",
+          "label": "Approved Date",
+          "internal": true
+        },
+        "cancelled_by": {
+          "type": "reference",
+          "entity": "core.user",
+          "displayField": "username",
+          "label": "Cancelled By",
+          "internal": true
+        },
+        "cancelled_at": {
+          "type": "datetime",
+          "label": "Cancelled Date",
+          "internal": true
+        },
+        "review_notes": {
+          "type": "text",
+          "label": "Reviewer Feedback / Comments"
+        }
+      }
+    }
+  }
+}

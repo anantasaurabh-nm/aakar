@@ -30,6 +30,23 @@ export function SectionRotator({ sections, onActiveSectionChange, renderSection 
     });
   }, [sections]);
 
+  useEffect(() => {
+    function handleActivateSection(e: Event) {
+      const customEvent = e as CustomEvent<{ sectionId: string }>;
+      const targetId = customEvent.detail?.sectionId;
+      if (!targetId || !sections.some((s) => s.id === targetId)) return;
+      setPanelOrder((prev) => {
+        if (prev[0] === targetId) return prev;
+        const targetIdx = prev.indexOf(targetId);
+        if (targetIdx === -1) return prev;
+        return [...prev.slice(targetIdx), ...prev.slice(0, targetIdx)];
+      });
+      if (onActiveSectionChange) onActiveSectionChange(targetId);
+    }
+    window.addEventListener('activate-section', handleActivateSection);
+    return () => window.removeEventListener('activate-section', handleActivateSection);
+  }, [sections, onActiveSectionChange]);
+
   const hasMultipleSections = sections.length > 1;
   const firstKey = panelOrder[0] || sections[0]?.id || '';
   const secondKey = panelOrder[1] || sections[1]?.id || firstKey;

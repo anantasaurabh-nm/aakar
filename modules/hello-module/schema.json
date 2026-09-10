@@ -1,0 +1,37 @@
+{
+  "entities": {
+    "greeting": {
+      "label": "Greeting",
+      "fields": {
+        "title": {
+          "type": "string",
+          "label": "Title",
+          "required": true,
+          "sortable": true,
+          "searchable": true
+        },
+        "message": {
+          "type": "text",
+          "label": "Message",
+          "searchable": true
+        },
+        "origin_module": {
+          "type": "string",
+          "label": "Origin",
+          "internal": true,
+          "default": "hello-module"
+        },
+        "origin_entity_type": {
+          "type": "string",
+          "internal": true,
+          "listVisible": false
+        },
+        "origin_record_id": {
+          "type": "string",
+          "internal": true,
+          "listVisible": false
+        }
+      }
+    }
+  }
+}

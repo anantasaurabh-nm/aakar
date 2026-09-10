@@ -1,0 +1,10 @@
+{
+  "id": "employees",
+  "name": "Employee",
+  "version": "1.0.0",
+  "description": "A simple employee module",
+  "type": "native",
+  "surfaces": [
+    "app"
+  ]
+}

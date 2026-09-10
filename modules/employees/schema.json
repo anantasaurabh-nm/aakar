@@ -1,0 +1,43 @@
+{
+  "entities": {
+    "employee": {
+      "label": "Employee",
+      "displayField": "employee_name",
+      "fields": {
+        "employee_name": {
+          "type": "string",
+          "label": "Employee Name",
+          "required": true,
+          "sortable": true,
+          "searchable": true
+        },
+        "mobile_number": {
+          "type": "string",
+          "label": "Mobile Number",
+          "searchable": true
+        },
+        "email": {
+          "type": "string",
+          "label": "Email",
+          "searchable": true
+        },
+        "origin_module": {
+          "type": "string",
+          "label": "Origin",
+          "internal": true,
+          "default": "hello-module"
+        },
+        "origin_entity_type": {
+          "type": "string",
+          "internal": true,
+          "listVisible": false
+        },
+        "origin_record_id": {
+          "type": "string",
+          "internal": true,
+          "listVisible": false
+        }
+      }
+    }
+  }
+}

@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { LLMProviderError, type CapabilityDescriptor, type ChatResponse, type OrchestratorDecision } from '@erp/shared-contracts';
+import { LLMProviderError, SDUI_SCHEMA_VERSION, type CapabilityDescriptor, type ChatResponse, type OrchestratorDecision } from '@erp/shared-contracts';
 import { CapabilityRegistry } from '../capabilities/capability-registry.service';
 import { EntityRegistryService } from '../entity-engine/entity-registry.service';
 import { ResponsePlannerService } from './response-planner.service';
@@ -9,7 +9,11 @@ import { AiFlowLoggerService } from './ai-flow-logger.service';
 import { ReferenceResolverService } from '../entity-engine/reference-resolver.service';
 import type { AuthenticatedUser } from '../auth/authenticated-user.interface';
 
+import { PrismaService } from '../prisma/prisma.service';
+import { loadModuleOnDisk } from '../entity-engine/module-schema-loader';
 import { buildClassifierPrompt } from './prompts';
+
+import { ModuleSettingsService } from '../module-settings/module-settings.service';
 
 /**
  * Never gives the model direct database access — it only ever produces a
@@ -28,6 +32,8 @@ export class OrchestratorService {
     private readonly entityRegistry: EntityRegistryService,
     private readonly aiLogger: AiFlowLoggerService,
     private readonly referenceResolver: ReferenceResolverService,
+    private readonly prisma: PrismaService,
+    private readonly moduleSettingsService: ModuleSettingsService,
   ) {}
 
   private async classify(message: string, user: AuthenticatedUser): Promise<OrchestratorDecision | null> {
@@ -123,6 +129,78 @@ export class OrchestratorService {
       user: { id: user.id, username: user.username, role: user.role, tenantId: user.tenantId },
       message,
     });
+
+    // Check if user is asking about module settings (e.g. "open todo settings", "show me the settings of todo", "configure todo", "todo settings")
+    let targetModule: string | null = null;
+    const isSettingsIntent = /\b(?:settings|configuration|config|configure|setup)\b/i.test(message);
+
+    if (isSettingsIntent) {
+      const match1 = message.match(/(?:settings|configuration|config)\s+(?:of|for|in)\s+([a-zA-Z0-9_-]+)/i);
+      const match2 = message.match(/([a-zA-Z0-9_-]+)\s+(?:settings|configuration|config)/i);
+      const match3 = message.match(/(?:configure|setup)\s+([a-zA-Z0-9_-]+)/i);
+
+      const candidate = match1?.[1] || match2?.[1] || match3?.[1];
+      if (candidate) {
+        const clean = candidate.toLowerCase().replace(/\s+/g, '-');
+        if (loadModuleOnDisk(clean)) {
+          targetModule = clean;
+        }
+      }
+    }
+
+    if (targetModule) {
+      const mod = loadModuleOnDisk(targetModule);
+      if (mod && mod.manifest.settings) {
+        const roleUpper = user.role?.toUpperCase();
+        const isAdmin = roleUpper === 'ADMIN' || roleUpper === 'SYSTEM_ADMIN' || roleUpper === 'SUPER_ADMIN';
+        const formConfig = await this.moduleSettingsService.getSettingsFormConfig(
+          user.tenantId,
+          targetModule,
+          user.id,
+          isAdmin,
+        );
+
+        if (formConfig) {
+          const response: ChatResponse = {
+            mode: 'ui',
+            text: `Opening ${mod.manifest.name} Settings on the left pane. You can review and update the configuration parameters.`,
+            ui: {
+              schema: SDUI_SCHEMA_VERSION,
+              brand: {
+                name: `${mod.manifest.name}`,
+                icon: 'settings',
+                hasSettings: true,
+                moduleId: targetModule,
+              },
+              navigation: { items: [] },
+              page: {
+                id: `${targetModule}-settings-view`,
+                title: `${mod.manifest.name} Settings`,
+                sections: [
+                  {
+                    id: `${targetModule}-settings-form`,
+                    label: `${mod.manifest.name} Settings`,
+                    type: 'form',
+                    toolbar: [
+                      { id: 'cancel', type: 'action', label: 'Cancel', action: { type: 'cancel' } },
+                      { id: 'save', type: 'action', label: 'Save Settings', action: { type: 'submit' } },
+                    ],
+                    config: formConfig,
+                  },
+                ],
+              },
+            },
+          };
+
+          this.aiLogger.logStep('RESPONSE_PLANNING', {
+            status: 'SETTINGS_VIEW_OPENED',
+            targetModule,
+            response,
+          });
+          return response;
+        }
+      }
+    }
 
     const decision = await this.classify(message, user);
     if (!decision) {

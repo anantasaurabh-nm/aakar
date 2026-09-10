@@ -1,0 +1,54 @@
+{
+  "entities": {
+    "metric": {
+      "label": "Metric",
+      "displayField": "name",
+      "fields": {
+        "name": {
+          "type": "string",
+          "label": "Metric Name",
+          "required": true,
+          "sortable": true,
+          "searchable": true,
+          "description": "Unique descriptive name of the performance indicator"
+        },
+        "value": {
+          "type": "number",
+          "label": "Value",
+          "required": true,
+          "sortable": true,
+          "description": "Numeric reading for the indicator"
+        },
+        "category": {
+          "type": "select",
+          "label": "Category",
+          "options": [
+            "revenue",
+            "operational",
+            "customer",
+            "engineering"
+          ],
+          "description": "Business domain category for grouping and breakdown"
+        },
+        "priority": {
+          "type": "select",
+          "label": "Priority",
+          "options": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ],
+          "description": "Urgency and significance level"
+        },
+        "assigned_to": {
+          "type": "reference",
+          "entity": "core.user",
+          "displayField": "username",
+          "label": "Owner",
+          "description": "Platform user responsible for tracking this metric"
+        }
+      }
+    }
+  }
+}

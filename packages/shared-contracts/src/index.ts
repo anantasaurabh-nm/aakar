@@ -11,6 +11,8 @@ export * from './api/record';
 export * from './api/auth';
 export * from './api/module';
 export * from './api/entity-schema';
+export * from './api/workflow';
+export * from './api/connectors';
 
 export * from './ai/models';
 export * from './ai/capability';

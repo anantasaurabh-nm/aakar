@@ -567,16 +567,18 @@ export function DataTable({ section }: { section: TableSection }) {
   }
 
   async function handleAction(action: SDUIAction, row?: Record<string, unknown>) {
-    switch (action.type) {
+    switch (action.type as string) {
       case 'refresh':
         invalidateSource();
         return;
       case 'create':
+      case 'open':
         if (isDetailView) {
-          setViewState({ mode: 'record' });
+          const rowId = row?.id || ((action as Record<string, unknown>).params as Record<string, unknown> | undefined)?.id;
+          setViewState({ mode: 'record', recordId: rowId ? String(rowId) : undefined, startInEditMode: !rowId });
           return;
         }
-        if (action.target) await openForm(action.target);
+        if (action.target) await openForm(action.target, row);
         return;
       case 'edit':
         if (isDetailView) return;
@@ -596,20 +598,29 @@ export function DataTable({ section }: { section: TableSection }) {
         }
         return;
       }
+      case 'action':
       case 'submit': {
         if (!action.target) return;
         if (action.confirm && !window.confirm(action.confirm.message)) return;
         setExecutingTarget(action.target);
         if (action.target === 'module.discover') {
           pushToast('Discovering available modules…');
+        } else if (action.target === 'connectors.connection.test') {
+          pushToast('Testing connection probe…');
         }
         try {
           const submitTarget = getSubmitTarget(action.target);
           const result = await submitTarget.execute(row ? { id: row.id } : {});
-          pushToast(summarizeSubmitResult(result) ?? 'Updated successfully.');
+          const summary = summarizeSubmitResult(result);
+          const isFailed = result && typeof result === 'object' && (result as Record<string, unknown>).success === false;
+          if (isFailed) {
+            pushToast(summary ?? 'Test probe failed.', 'error');
+          } else {
+            pushToast(summary ?? 'Action completed successfully.', 'success');
+          }
           for (const source of submitTarget.invalidates) queryClient.invalidateQueries({ queryKey: ['ds', source] });
         } catch (err) {
-          pushToast(err instanceof Error ? err.message : 'Failed to update', 'error');
+          pushToast(err instanceof Error ? err.message : 'Action failed', 'error');
         } finally {
           setExecutingTarget(null);
         }
@@ -676,9 +687,11 @@ export function DataTable({ section }: { section: TableSection }) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   // Declarative section toolbar items
-  const createActionItem = (section.toolbar ?? []).find((item) => item.action?.type === 'create');
+  const createActionItem = (section.toolbar ?? []).find(
+    (item) => item.action?.type === 'create' || item.id === 'new' || item.id === 'act-create',
+  );
   const otherActionItems = (section.toolbar ?? []).filter(
-    (item) => item.type === 'action' && item.action?.type !== 'create' && item.id !== 'refresh',
+    (item) => item.type === 'action' && item !== createActionItem && item.id !== 'refresh',
   );
   const filterItems = (section.toolbar ?? []).filter((item) => item.type === 'filter');
 
@@ -710,18 +723,21 @@ export function DataTable({ section }: { section: TableSection }) {
       {/* Single Unified Top Toolbar */}
       <div
         style={{
+          position: 'relative',
+          zIndex: 40,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          flexWrap: 'wrap',
+          flexWrap: 'nowrap',
           gap: 12,
           padding: '4px 12px 0 12px',
           borderBottom: '0px solid var(--border)',
           background: 'transparent',
+          overflow: 'visible',
         }}
       >
         {/* Left Side: New button, Status Dropdown, other actions, and Search */}
-        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10, minWidth: 0 }}>
           {/* New Action Button */}
           {createActionItem && (
             <button
@@ -849,9 +865,11 @@ export function DataTable({ section }: { section: TableSection }) {
           </div>
         </div>
 
-        {/* Center: Pagination Pill */}
-        {hasDataSource && (
-          <div
+        {/* Right Side: Pagination Pill + Grouped Tool Buttons */}
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginLeft: 'auto', flexShrink: 0 }}>
+          {/* Center: Pagination Pill */}
+          {hasDataSource && (
+            <div
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -1215,10 +1233,11 @@ export function DataTable({ section }: { section: TableSection }) {
             <RefreshCw size={16} />
           </button>
         </div>
+        </div>
       </div>
 
       {/* Main Table Surface */}
-      <div style={{ padding: '4px 8px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ padding: '4px 8px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative', zIndex: 1 }}>
         <div
           style={{
             background: 'var(--surface)',
@@ -1306,7 +1325,7 @@ export function DataTable({ section }: { section: TableSection }) {
             {/* Table View Layout (matching Screenshot with direct column menu) */}
             {(!hasDataSource || (!isLoading && !isError) || data) && rows.length > 0 && view === 'table' && (
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
-                <thead style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
+                <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
                   {table.getHeaderGroups().map((hg) => (
                     <tr key={hg.id}>
                       {isDetailView && (
@@ -1469,7 +1488,7 @@ const dropdownMenuStyle: React.CSSProperties = {
   position: 'absolute',
   top: 'calc(100% + 8px)',
   right: 0,
-  zIndex: 50,
+  zIndex: 100,
   background: 'var(--surface)',
   border: '1px solid var(--border)',
   borderRadius: 14,
@@ -1496,6 +1515,11 @@ const dropdownMenuItemStyle: React.CSSProperties = {
 function summarizeSubmitResult(result: unknown): string | null {
   if (!result || typeof result !== 'object') return null;
   const r = result as Record<string, unknown>;
+  if (typeof r.message === 'string') {
+    const latency = typeof r.latencyMs === 'number' ? ` (${r.latencyMs}ms)` : '';
+    const prefix = r.success === true ? '✓ ' : r.success === false ? '✕ ' : '';
+    return `${prefix}${r.message}${latency}`;
+  }
   if (Array.isArray(r.discovered)) {
     return r.discovered.length > 0
       ? `Discovered ${r.discovered.length} module(s): ${r.discovered.join(', ')}`

@@ -17,6 +17,28 @@ export const ModulePermissionSchema = z.object({
 });
 export type ModulePermission = z.infer<typeof ModulePermissionSchema>;
 
+export const ModuleSettingFieldSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  type: z.enum(['connection', 'text', 'password', 'number', 'select', 'switch', 'textarea']),
+  provider: z.string().optional(), // e.g. "mcp", "trello", "stripe", or "any"
+  required: z.boolean().optional(),
+  scope: z.enum(['global', 'user']).optional().default('global'),
+  access: z.enum(['admin', 'user']).optional().default('admin'),
+  defaultValue: z.unknown().optional(),
+  helpText: z.string().optional(),
+  placeholder: z.string().optional(),
+  options: z.array(z.object({ label: z.string(), value: z.string() })).optional(),
+});
+export type ModuleSettingField = z.infer<typeof ModuleSettingFieldSchema>;
+
+export const ModuleSettingsSchema = z.object({
+  title: z.string().optional(),
+  description: z.string().optional(),
+  fields: z.array(ModuleSettingFieldSchema),
+});
+export type ModuleSettingsDefinition = z.infer<typeof ModuleSettingsSchema>;
+
 /**
  * `module.json` manifest shape (Module System PRD v2 §31). Intentionally
  * minimal — a module optionally ships a sibling `schema.json` (Level 1) for
@@ -32,6 +54,7 @@ export const ModuleManifestSchema = z.object({
   surfaces: z.array(SurfaceSchema).min(1),
   dependencies: z.record(z.string()).optional(),
   optionalDependencies: z.record(z.string()).optional(),
+  settings: ModuleSettingsSchema.optional(),
 });
 export type ModuleManifest = z.infer<typeof ModuleManifestSchema>;
 

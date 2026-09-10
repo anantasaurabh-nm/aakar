@@ -4,5 +4,49 @@
   "version": "1.0.0",
   "description": "Tasks, due dates, priorities and completion",
   "type": "native",
-  "surfaces": ["app"]
+  "surfaces": ["app"],
+  "settings": {
+    "title": "Todo & Task Sync Settings",
+    "description": "Configure external connectors, MCP servers, and automation parameters for Todo.",
+    "fields": [
+      {
+        "key": "mcpTaskServer",
+        "label": "Task Processing MCP Server",
+        "type": "connection",
+        "provider": "mcp",
+        "required": false,
+        "scope": "global",
+        "access": "admin",
+        "helpText": "Select an active MCP Server to enable autonomous task planning, AI breakdown, and external tool execution."
+      },
+      {
+        "key": "trelloSyncConnection",
+        "label": "Trello Board Connection",
+        "type": "connection",
+        "provider": "trello",
+        "required": false,
+        "scope": "user",
+        "access": "user",
+        "helpText": "Select your personal Trello connection for syncing assigned cards to your todo list."
+      },
+      {
+        "key": "autoSyncInterval",
+        "label": "Auto-Sync Frequency (Minutes)",
+        "type": "number",
+        "defaultValue": 15,
+        "scope": "global",
+        "access": "admin",
+        "helpText": "How often background sync jobs query external connectors."
+      },
+      {
+        "key": "enableAiAutoPrioritization",
+        "label": "Enable AI Auto-Prioritization",
+        "type": "switch",
+        "defaultValue": true,
+        "scope": "global",
+        "access": "admin",
+        "helpText": "Automatically analyze task descriptions and suggest priority flags."
+      }
+    ]
+  }
 }

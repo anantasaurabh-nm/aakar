@@ -1,0 +1,432 @@
+{
+  "schema": "1.0",
+  "brand": {
+    "name": "Workflows Lab",
+    "icon": "shield"
+  },
+  "navigation": {
+    "items": [
+      {
+        "id": "nav-perspectives",
+        "label": "Perspectives",
+        "icon": "layout",
+        "items": [
+          {
+            "id": "persp-all-requests",
+            "label": "All Requests",
+            "icon": "modules",
+            "action": {
+              "type": "navigate",
+              "target": "#all-requests"
+            }
+          },
+          {
+            "id": "persp-pending-review",
+            "label": "Pending Review",
+            "icon": "clock",
+            "badge": "Review",
+            "action": {
+              "type": "navigate",
+              "target": "#pending-review"
+            }
+          },
+          {
+            "id": "persp-my-requests",
+            "label": "My Submissions",
+            "icon": "users",
+            "badge": "Mine",
+            "action": {
+              "type": "navigate",
+              "target": "#my-requests"
+            }
+          },
+          {
+            "id": "persp-approved",
+            "label": "Approved Requests",
+            "icon": "check",
+            "action": {
+              "type": "navigate",
+              "target": "#approved-requests"
+            }
+          },
+          {
+            "id": "persp-insights",
+            "label": "Workflow Analytics",
+            "icon": "activity",
+            "action": {
+              "type": "navigate",
+              "target": "#workflow-insights"
+            }
+          }
+        ]
+      },
+      {
+        "id": "nav-quick-actions",
+        "label": "Quick Actions",
+        "icon": "sparkles",
+        "items": [
+          {
+            "id": "act-new-request",
+            "label": "New Approval Request",
+            "icon": "notes",
+            "action": {
+              "type": "navigate",
+              "target": "#request-form"
+            }
+          }
+        ]
+      },
+      {
+        "id": "nav-bridges",
+        "label": "Related Apps",
+        "icon": "modules",
+        "items": [
+          {
+            "id": "bridge-views",
+            "label": "Hello Views (SDUI Views)",
+            "icon": "layout",
+            "action": {
+              "type": "navigate",
+              "target": "/app/hello-views"
+            }
+          },
+          {
+            "id": "bridge-notes",
+            "label": "Hello Notes (Relationships)",
+            "icon": "notes",
+            "action": {
+              "type": "navigate",
+              "target": "/app/hello-notes"
+            }
+          },
+          {
+            "id": "bridge-todos",
+            "label": "Todos",
+            "icon": "todo",
+            "action": {
+              "type": "navigate",
+              "target": "/app/todo"
+            }
+          },
+          {
+            "id": "bridge-apps-hub",
+            "label": "Apps Hub",
+            "icon": "home",
+            "action": {
+              "type": "navigate",
+              "target": "/"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "page": {
+    "id": "hello-workflows",
+    "title": "Workflows Lab",
+    "sections": [
+      {
+        "id": "all-requests",
+        "label": "All Approval Requests",
+        "type": "table",
+        "toolbar": [
+          {
+            "id": "search",
+            "type": "search",
+            "placeholder": "Search requests by title or justification..."
+          },
+          {
+            "id": "filter-category",
+            "type": "filter",
+            "field": "category",
+            "options": [
+              { "label": "All Categories", "value": "" },
+              { "label": "Equipment", "value": "equipment" },
+              { "label": "Software", "value": "software" },
+              { "label": "Travel", "value": "travel" },
+              { "label": "Training", "value": "training" },
+              { "label": "Facilities", "value": "facilities" }
+            ]
+          },
+          {
+            "id": "new",
+            "type": "action",
+            "label": "New Request",
+            "action": {
+              "type": "create",
+              "target": "hello-workflows.request.form"
+            }
+          }
+        ],
+        "data": {
+          "source": "hello-workflows.request.list"
+        },
+        "config": {
+          "columns": [
+            { "key": "title", "label": "Title", "type": "text", "sortable": true },
+            { "key": "category", "label": "Category", "type": "badge", "sortable": true },
+            { "key": "amount", "label": "Cost ($)", "type": "number", "sortable": true },
+            { "key": "urgency", "label": "Urgency", "type": "badge" },
+            { "key": "record_status", "label": "Status", "type": "badge", "sortable": true },
+            { "key": "created_by", "label": "Created By", "type": "text" },
+            { "key": "record_date", "label": "Date", "type": "date", "sortable": true }
+          ],
+          "selectable": true,
+          "pageSize": 50,
+          "density": "comfortable",
+          "detailView": true
+        }
+      },
+      {
+        "id": "workflow-insights",
+        "label": "Workflow Governance & Insights",
+        "type": "dashboard",
+        "toolbar": [
+          {
+            "id": "period",
+            "type": "filter",
+            "field": "recordDate",
+            "options": [
+              { "label": "Today", "value": "today" },
+              { "label": "This Week", "value": "this_week" },
+              { "label": "This Month", "value": "this_month" },
+              { "label": "All Time", "value": "all_time" }
+            ],
+            "defaultValue": "this_month"
+          }
+        ],
+        "data": {
+          "source": "hello-workflows.request.insights",
+          "params": {
+            "recordDate": "this_month"
+          }
+        }
+      },
+      {
+        "id": "pending-review",
+        "label": "Pending Review (Needs Action)",
+        "type": "table",
+        "toolbar": [
+          {
+            "id": "search",
+            "type": "search",
+            "placeholder": "Search pending reviews..."
+          },
+          {
+            "id": "new",
+            "type": "action",
+            "label": "New Request",
+            "action": {
+              "type": "create",
+              "target": "hello-workflows.request.form"
+            }
+          }
+        ],
+        "data": {
+          "source": "hello-workflows.request.list",
+          "params": {
+            "status": "submitted"
+          }
+        },
+        "config": {
+          "columns": [
+            { "key": "title", "label": "Title", "type": "text", "sortable": true },
+            { "key": "category", "label": "Category", "type": "badge" },
+            { "key": "amount", "label": "Cost ($)", "type": "number", "sortable": true },
+            { "key": "urgency", "label": "Urgency", "type": "badge" },
+            { "key": "record_status", "label": "Status", "type": "badge" },
+            { "key": "submitted_by", "label": "Submitted By", "type": "text" }
+          ],
+          "selectable": true,
+          "pageSize": 50,
+          "density": "comfortable",
+          "detailView": true
+        }
+      },
+      {
+        "id": "my-requests",
+        "label": "My Submissions",
+        "type": "table",
+        "toolbar": [
+          {
+            "id": "search",
+            "type": "search",
+            "placeholder": "Search my requests..."
+          },
+          {
+            "id": "new",
+            "type": "action",
+            "label": "New Request",
+            "action": {
+              "type": "create",
+              "target": "hello-workflows.request.form"
+            }
+          }
+        ],
+        "data": {
+          "source": "hello-workflows.request.list",
+          "params": {
+            "created_by": "$currentuser"
+          }
+        },
+        "config": {
+          "columns": [
+            { "key": "title", "label": "Title", "type": "text", "sortable": true },
+            { "key": "category", "label": "Category", "type": "badge" },
+            { "key": "amount", "label": "Cost ($)", "type": "number", "sortable": true },
+            { "key": "urgency", "label": "Urgency", "type": "badge" },
+            { "key": "record_status", "label": "Status", "type": "badge" },
+            { "key": "record_date", "label": "Date", "type": "date" }
+          ],
+          "selectable": true,
+          "pageSize": 50,
+          "density": "comfortable",
+          "detailView": true
+        }
+      },
+      {
+        "id": "approved-requests",
+        "label": "Approved Requests",
+        "type": "table",
+        "toolbar": [
+          {
+            "id": "search",
+            "type": "search",
+            "placeholder": "Search approved requests..."
+          }
+        ],
+        "data": {
+          "source": "hello-workflows.request.list",
+          "params": {
+            "status": "approved"
+          }
+        },
+        "config": {
+          "columns": [
+            { "key": "title", "label": "Title", "type": "text", "sortable": true },
+            { "key": "category", "label": "Category", "type": "badge" },
+            { "key": "amount", "label": "Cost ($)", "type": "number", "sortable": true },
+            { "key": "approved_by", "label": "Approved By", "type": "text" },
+            { "key": "record_status", "label": "Status", "type": "badge" }
+          ],
+          "selectable": true,
+          "pageSize": 50,
+          "density": "comfortable",
+          "detailView": true
+        }
+      },
+      {
+        "id": "request-form",
+        "label": "New Approval Request",
+        "type": "form",
+        "toolbar": [
+          {
+            "id": "cancel",
+            "type": "action",
+            "label": "Cancel",
+            "action": {
+              "type": "cancel"
+            }
+          },
+          {
+            "id": "save",
+            "type": "action",
+            "label": "Submit Request",
+            "action": {
+              "type": "submit"
+            }
+          }
+        ],
+        "config": {
+          "layout": {
+            "type": "grid",
+            "columns": 2,
+            "groups": [
+              {
+                "id": "overview",
+                "title": "Request Overview",
+                "description": "General identification and categorization",
+                "columns": 2,
+                "fields": ["title", "category"]
+              },
+              {
+                "id": "budget",
+                "title": "Budget & Priority",
+                "description": "Financial estimation and business urgency",
+                "columns": 2,
+                "fields": ["amount", "urgency"]
+              },
+              {
+                "id": "business_case",
+                "title": "Business Justification",
+                "description": "Detailed justification required for review and approval",
+                "columns": 2,
+                "fields": ["justification"]
+              },
+              {
+                "id": "review",
+                "title": "Reviewer & Governance Notes",
+                "description": "Feedback, audit notes, or approval comments",
+                "columns": 2,
+                "fields": ["review_notes"]
+              }
+            ]
+          },
+          "fields": [
+            {
+              "name": "title",
+              "label": "Request Title",
+              "type": "text",
+              "required": true
+            },
+            {
+              "name": "category",
+              "label": "Category",
+              "type": "select",
+              "options": [
+                { "label": "Equipment & Hardware", "value": "equipment" },
+                { "label": "Software & Subscriptions", "value": "software" },
+                { "label": "Business Travel", "value": "travel" },
+                { "label": "Training & Certification", "value": "training" },
+                { "label": "Facilities & Office", "value": "facilities" }
+              ],
+              "required": true
+            },
+            {
+              "name": "amount",
+              "label": "Estimated Cost ($)",
+              "type": "number",
+              "required": true
+            },
+            {
+              "name": "urgency",
+              "label": "Priority / Urgency",
+              "type": "select",
+              "options": [
+                { "label": "Low", "value": "low" },
+                { "label": "Medium", "value": "medium" },
+                { "label": "High", "value": "high" },
+                { "label": "Critical", "value": "critical" }
+              ]
+            },
+            {
+              "name": "justification",
+              "label": "Business Justification",
+              "type": "textarea",
+              "required": true
+            },
+            {
+              "name": "review_notes",
+              "label": "Reviewer Feedback / Comments",
+              "type": "textarea"
+            }
+          ],
+          "submitAction": {
+            "type": "submit",
+            "target": "hello-workflows.request.create"
+          }
+        }
+      }
+    ]
+  }
+}

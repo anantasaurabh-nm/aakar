@@ -24,6 +24,9 @@ const REGISTRY: Record<string, DataSourceFn> = {
   'roles.insights': () => apiClient.get('data/roles-insights'),
 
   modules: (params) => apiClient.get(`data/modules${buildQuery(params ?? {})}`),
+  connectors: (params) => apiClient.get(`data/connectors${buildQuery(params ?? {})}`),
+  'connectors.list': (params) => apiClient.get(`data/connectors${buildQuery(params ?? {})}`),
+  'connectors.connection': (params) => apiClient.get(`data/connectors${buildQuery(params ?? {})}`),
 };
 
 export class UnknownDataSourceError extends Error {

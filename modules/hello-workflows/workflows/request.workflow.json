@@ -1,0 +1,108 @@
+{
+  "$schema": "https://doersos.dev/schemas/workflow.v1.json",
+  "id": "request-approval",
+  "entity": "request",
+  "name": "Capital & Expenditure Approval Workflow",
+  "description": "Two-tier approval workflow enforcing maker-checker separation and role governance",
+  "initialStatus": "draft",
+  "pipeline": ["draft", "submitted", "approved"],
+  "states": {
+    "draft": {
+      "label": "Draft",
+      "canEdit": true,
+      "badgeTone": "neutral",
+      "stepIndex": 0,
+      "transitions": [
+        {
+          "to": "submitted",
+          "label": "Submit for Review",
+          "actionType": "forward",
+          "requiredFields": ["title", "amount", "justification"],
+          "sideEffects": {
+            "setSubmittedMetadata": true
+          }
+        },
+        {
+          "to": "cancelled",
+          "label": "Cancel Draft",
+          "actionType": "side",
+          "confirm": "Are you sure you want to cancel this draft?"
+        }
+      ]
+    },
+    "submitted": {
+      "label": "Under Review",
+      "canEdit": false,
+      "badgeTone": "warning",
+      "stepIndex": 1,
+      "transitions": [
+        {
+          "to": "approved",
+          "label": "Approve Request",
+          "actionType": "forward",
+          "makerChecker": true,
+          "requiredRoles": ["ADMIN", "MANAGER", "SUPERADMIN"],
+          "sideEffects": {
+            "setApprovedMetadata": true
+          }
+        },
+        {
+          "to": "draft",
+          "label": "Return to Draft (Needs Revision)",
+          "actionType": "side",
+          "requiredRoles": ["ADMIN", "MANAGER", "SUPERADMIN"],
+          "confirm": "Return this request back to draft so the author can make revisions?"
+        },
+        {
+          "to": "cancelled",
+          "label": "Reject Request",
+          "actionType": "side",
+          "confirm": "Are you sure you want to reject and cancel this request?",
+          "sideEffects": {
+            "setCancelledMetadata": true
+          }
+        }
+      ]
+    },
+    "approved": {
+      "label": "Approved",
+      "canEdit": false,
+      "badgeTone": "success",
+      "stepIndex": 2,
+      "transitions": [
+        {
+          "to": "cancelled",
+          "label": "Revoke / Cancel",
+          "actionType": "side",
+          "requiredRoles": ["ADMIN", "SUPERADMIN"],
+          "confirm": "Revoke this approved request?"
+        }
+      ]
+    },
+    "cancelled": {
+      "label": "Cancelled",
+      "canEdit": false,
+      "badgeTone": "danger",
+      "transitions": [
+        {
+          "to": "draft",
+          "label": "Reopen as Draft",
+          "actionType": "forward",
+          "confirm": "Reopen this request as a new draft?"
+        },
+        {
+          "to": "deleted",
+          "label": "Delete Permanently",
+          "actionType": "side",
+          "confirm": "Permanently delete this request?"
+        }
+      ]
+    },
+    "deleted": {
+      "label": "Deleted",
+      "canEdit": false,
+      "badgeTone": "danger",
+      "transitions": []
+    }
+  }
+}

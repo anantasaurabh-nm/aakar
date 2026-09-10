@@ -14,8 +14,11 @@ import {
   ChevronRight,
   Printer,
   FileDown,
+  Zap,
+  Loader2,
 } from 'lucide-react';
-import type { FormConfig, TableSection } from '@erp/shared-contracts';
+import type { FormConfig, TableSection, SDUIFormField } from '@erp/shared-contracts';
+import { evalFieldCondition } from '@erp/shared-contracts';
 import dynamic from 'next/dynamic';
 import { fetchFormSection } from '@/lib/form-registry';
 import { getSubmitTarget } from '@/lib/action-registry';
@@ -24,6 +27,7 @@ import { DynamicForm, FieldDisplay } from './DynamicForm';
 import { RolePermissionMatrix, type PermissionModuleGroup } from './RolePermissionMatrix';
 import { Badge } from '@/components/ui/Badge';
 import { useUiStore } from '@/lib/ui-store';
+import type { ComputedRecordWorkflow } from '@erp/shared-contracts';
 
 const DataTable = dynamic(() => import('./DataTable').then((m) => m.DataTable), { ssr: false });
 
@@ -33,6 +37,13 @@ interface FormSectionResponse {
   record?: Record<string, unknown>;
   permissionModules?: PermissionModuleGroup[];
   relatedSections?: TableSection[];
+  workflow?: ComputedRecordWorkflow;
+  toolbar?: Array<{
+    id: string;
+    type?: string;
+    label: string;
+    action?: { type: string; target?: string };
+  }>;
 }
 
 function getStatusTone(status?: string): 'neutral' | 'primary' | 'success' | 'danger' | 'warning' {
@@ -42,9 +53,14 @@ function getStatusTone(status?: string): 'neutral' | 'primary' | 'success' | 'da
     case 'submitted':
       return 'primary';
     case 'approved':
+    case 'active':
+    case 'ok':
       return 'success';
     case 'cancelled':
+    case 'error':
       return 'danger';
+    case 'inactive':
+      return 'warning';
     default:
       return 'neutral';
   }
@@ -97,6 +113,7 @@ export function RecordView({
   const [editing, setEditing] = useState(isNew || startInEditMode);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [activeRelatedTab, setActiveRelatedTab] = useState(0);
+  const [isTesting, setIsTesting] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const formTarget = `${module}.${entity}.form`;
@@ -107,6 +124,34 @@ export function RecordView({
     queryFn: () => fetchFormSection(formTarget, recordId ? { id: recordId } : undefined) as Promise<FormSectionResponse>,
     placeholderData: (previousData) => previousData,
   });
+
+  const handleTestConnection = async () => {
+    setIsTesting(true);
+    pushToast('Probing connection with remote provider…');
+    try {
+      const target = getSubmitTarget('connectors.connection.test');
+      const payload: Record<string, unknown> = {
+        id: recordId,
+        provider: data?.record?.provider,
+        ...(data?.record ?? {}),
+      };
+      const res = await target.execute(payload);
+      const resObj = (res ?? {}) as Record<string, unknown>;
+      const latency = typeof resObj.latencyMs === 'number' ? ` (${resObj.latencyMs}ms)` : '';
+      if (resObj.success) {
+        pushToast(`✓ ${resObj.message || 'Connection verified successfully!'}${latency}`, 'success');
+      } else {
+        pushToast(`✕ ${resObj.message || 'Connection test failed'}${latency}`, 'error');
+      }
+      queryClient.invalidateQueries({ queryKey: formQueryKey });
+      queryClient.invalidateQueries({ queryKey: ['ds', 'connectors.connection'] });
+      queryClient.invalidateQueries({ queryKey: ['ds', 'connectors'] });
+    } catch (err) {
+      pushToast(err instanceof Error ? err.message : 'Connection test request failed', 'error');
+    } finally {
+      setIsTesting(false);
+    }
+  };
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -140,9 +185,59 @@ export function RecordView({
     return null;
   }
 
+  // Only business records with approval workflows use lifecycles.
+  // Configuration entities (connectors, user-roles, settings) do NOT have workflow transitions.
+  const hasWorkflow = Boolean(data.workflow) || (
+    module !== 'connectors' &&
+    module !== 'user-roles' &&
+    module !== 'settings' &&
+    typeof data.record?.record_status === 'string'
+  );
+
   const rawStatus = data.record?.record_status ?? data.record?.status;
-  const status = typeof rawStatus === 'string' ? (rawStatus as RecordStatus) : undefined;
-  const lifecycle = lifecycleFor(status);
+  const status = typeof rawStatus === 'string' ? rawStatus : undefined;
+  const defaultLifecycle = hasWorkflow ? lifecycleFor(status) : null;
+
+  // If server computed custom Level 4 workflow, use it; otherwise fallback to defaultLifecycle
+  const customWf = hasWorkflow ? data.workflow : null;
+  const forwardAction = customWf?.forwardAction
+    ? {
+        label: customWf.forwardAction.label,
+        to: customWf.forwardAction.to as RecordStatus,
+        disabled: customWf.forwardAction.disabled,
+        disabledReason: customWf.forwardAction.disabledReason,
+        confirm: customWf.forwardAction.confirm,
+      }
+    : defaultLifecycle?.forward
+    ? {
+        label: defaultLifecycle.forward.label,
+        to: defaultLifecycle.forward.to,
+        disabled: false as boolean | undefined,
+        disabledReason: undefined as string | undefined,
+        confirm: undefined as boolean | string | undefined,
+      }
+    : undefined;
+
+  const sideActions = customWf
+    ? customWf.sideActions.map((s) => ({
+        label: s.label,
+        to: s.to as RecordStatus,
+        confirm: s.confirm,
+        disabled: s.disabled,
+        disabledReason: s.disabledReason,
+      }))
+    : defaultLifecycle?.sideActions
+    ? defaultLifecycle.sideActions.map((s) => ({
+        label: s.label,
+        to: s.to,
+        confirm: s.confirm,
+        disabled: false as boolean | undefined,
+        disabledReason: undefined as string | undefined,
+      }))
+    : [];
+
+  const primarySideAction = sideActions.length > 0 ? sideActions[0] : undefined;
+  const canEditRecord = customWf ? (customWf.canEdit ?? defaultLifecycle?.canEdit ?? true) : (defaultLifecycle?.canEdit ?? true);
 
   function invalidateAndSettle(invalidates: string[], close: boolean) {
     for (const source of invalidates) queryClient.invalidateQueries({ queryKey: ['ds', source] });
@@ -169,8 +264,6 @@ export function RecordView({
       pushToast(err instanceof Error ? err.message : `Failed to ${label.toLowerCase()}`, 'error');
     }
   }
-
-  const primarySideAction = lifecycle.sideActions.length > 0 ? lifecycle.sideActions[0] : undefined;
 
   function handlePrint() {
     window.print();
@@ -262,7 +355,7 @@ export function RecordView({
             </button>
           ) : (
             /* When NOT editing: Edit button (pencil icon + 'Edit' text) */
-            lifecycle.canEdit && (
+            canEditRecord && (
               <button
                 key="edit-btn"
                 type="button"
@@ -291,6 +384,38 @@ export function RecordView({
                 <span>Edit</span>
               </button>
             )
+          )}
+
+          {/* Test Connection Button (for connectors module or whenever form provides a test action) */}
+          {(module === 'connectors' || data?.toolbar?.some((t) => t.id === 'test' || t.id === 'test-connection')) && (
+            <button
+              key="test-connection-btn"
+              type="button"
+              disabled={isTesting}
+              onClick={handleTestConnection}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '7px 14px',
+                borderRadius: 8,
+                border: '1px solid var(--border)',
+                background: isTesting ? 'var(--surface-3)' : 'var(--surface)',
+                color: 'var(--text-primary)',
+                fontWeight: 600,
+                fontSize: 13,
+                cursor: isTesting ? 'not-allowed' : 'pointer',
+                transition: 'background-color 0.15s ease',
+              }}
+              title="Test live connection probe with remote service"
+            >
+              {isTesting ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Zap size={14} style={{ color: '#f59e0b' }} />
+              )}
+              <span>{isTesting ? 'Probing…' : 'Test Connection'}</span>
+            </button>
           )}
         </div>
 
@@ -403,68 +528,73 @@ export function RecordView({
               <ChevronRight size={16} />
             </button>
 
-            {/* Subtle Divider */}
-            <div style={{ width: 1, height: 16, background: 'var(--border)', margin: '0 3px' }} />
+            {/* Print & PDF Buttons: Only for printable document/workflow modules */}
+            {hasWorkflow && (
+              <>
+                {/* Subtle Divider */}
+                <div style={{ width: 1, height: 16, background: 'var(--border)', margin: '0 3px' }} />
 
-            {/* Print Button */}
-            <button
-              type="button"
-              onClick={handlePrint}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: 30,
-                height: 30,
-                borderRadius: 8,
-                border: 'none',
-                background: 'transparent',
-                color: 'var(--text-secondary)',
-                cursor: 'pointer',
-                transition: 'background-color 0.15s ease, color 0.15s ease',
-              }}
-              title="Print record"
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'var(--surface)';
-                e.currentTarget.style.color = 'var(--text-primary)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
-                e.currentTarget.style.color = 'var(--text-secondary)';
-              }}
-            >
-              <Printer size={16} />
-            </button>
+                {/* Print Button */}
+                <button
+                  type="button"
+                  onClick={handlePrint}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 30,
+                    height: 30,
+                    borderRadius: 8,
+                    border: 'none',
+                    background: 'transparent',
+                    color: 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    transition: 'background-color 0.15s ease, color 0.15s ease',
+                  }}
+                  title="Print record"
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--surface)';
+                    e.currentTarget.style.color = 'var(--text-primary)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.color = 'var(--text-secondary)';
+                  }}
+                >
+                  <Printer size={16} />
+                </button>
 
-            {/* Export to PDF Button */}
-            <button
-              type="button"
-              onClick={handleExportPdf}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: 30,
-                height: 30,
-                borderRadius: 8,
-                border: 'none',
-                background: 'transparent',
-                color: 'var(--text-secondary)',
-                cursor: 'pointer',
-                transition: 'background-color 0.15s ease, color 0.15s ease',
-              }}
-              title="Export to PDF"
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'var(--surface)';
-                e.currentTarget.style.color = 'var(--text-primary)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
-                e.currentTarget.style.color = 'var(--text-secondary)';
-              }}
-            >
-              <FileDown size={16} />
-            </button>
+                {/* Export to PDF Button */}
+                <button
+                  type="button"
+                  onClick={handleExportPdf}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 30,
+                    height: 30,
+                    borderRadius: 8,
+                    border: 'none',
+                    background: 'transparent',
+                    color: 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    transition: 'background-color 0.15s ease, color 0.15s ease',
+                  }}
+                  title="Export to PDF"
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--surface)';
+                    e.currentTarget.style.color = 'var(--text-primary)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.color = 'var(--text-secondary)';
+                  }}
+                >
+                  <FileDown size={16} />
+                </button>
+              </>
+            )}
           </div>
         )}
 
@@ -475,27 +605,36 @@ export function RecordView({
           {!isNew && !editing && (
             <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }} ref={dropdownRef}>
               {/* Primary Forward Action (e.g. Submit, Approve, Reopen as Draft) */}
-              {lifecycle.forward ? (
+              {forwardAction ? (
                 <div style={{ display: 'inline-flex', alignItems: 'stretch' }}>
                   <button
-                    onClick={() => runTransition(lifecycle.forward!.to, lifecycle.forward!.label)}
+                    onClick={() => {
+                      if (forwardAction.disabled) {
+                        pushToast(forwardAction.disabledReason || 'Action not allowed', 'error');
+                        return;
+                      }
+                      runTransition(forwardAction.to, forwardAction.label, forwardAction.confirm);
+                    }}
+                    disabled={forwardAction.disabled}
+                    title={forwardAction.disabled ? forwardAction.disabledReason : undefined}
                     style={{
                       padding: '8px 14px',
                       border: 'none',
-                      borderRadius: lifecycle.sideActions.length > 0 ? '8px 0 0 8px' : 8,
-                      background: 'var(--accent-indigo-dark)',
+                      borderRadius: sideActions.length > 0 ? '8px 0 0 8px' : 8,
+                      background: forwardAction.disabled ? 'var(--text-tertiary)' : 'var(--accent-indigo-dark)',
                       color: '#fff',
                       fontWeight: 600,
                       fontSize: 13,
-                      cursor: 'pointer',
+                      cursor: forwardAction.disabled ? 'not-allowed' : 'pointer',
+                      opacity: forwardAction.disabled ? 0.65 : 1,
                       boxShadow: 'var(--shadow-sm)',
                     }}
                   >
-                    {lifecycle.forward.label}
+                    {forwardAction.label}
                   </button>
 
                   {/* Dropdown Chevron Trigger for Side Actions */}
-                  {lifecycle.sideActions.length > 0 && (
+                  {sideActions.length > 0 && (
                     <button
                       onClick={() => setDropdownOpen((prev) => !prev)}
                       style={{
@@ -503,9 +642,10 @@ export function RecordView({
                         border: 'none',
                         borderLeft: '1px solid rgba(255, 255, 255, 0.25)',
                         borderRadius: '0 8px 8px 0',
-                        background: 'var(--accent-indigo-dark)',
+                        background: forwardAction.disabled ? 'var(--text-tertiary)' : 'var(--accent-indigo-dark)',
                         color: '#fff',
                         cursor: 'pointer',
+                        opacity: forwardAction.disabled ? 0.65 : 1,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -521,11 +661,19 @@ export function RecordView({
                 primarySideAction && (
                   <div style={{ display: 'inline-flex', alignItems: 'stretch' }}>
                     <button
-                      onClick={() => runTransition(primarySideAction.to, primarySideAction.label, primarySideAction.confirm)}
+                      onClick={() => {
+                        if (primarySideAction.disabled) {
+                          pushToast(primarySideAction.disabledReason || 'Action not allowed', 'error');
+                          return;
+                        }
+                        runTransition(primarySideAction.to, primarySideAction.label, primarySideAction.confirm);
+                      }}
+                      disabled={primarySideAction.disabled}
+                      title={primarySideAction.disabled ? primarySideAction.disabledReason : undefined}
                       style={{
                         padding: '8px 14px',
                         border: '1px solid var(--border)',
-                        borderRadius: lifecycle.sideActions.length > 1 ? '8px 0 0 8px' : 8,
+                        borderRadius: sideActions.length > 1 ? '8px 0 0 8px' : 8,
                         background: 'var(--surface)',
                         color:
                           primarySideAction.to === 'cancelled' || primarySideAction.to === 'deleted'
@@ -533,7 +681,8 @@ export function RecordView({
                             : 'var(--text-primary)',
                         fontWeight: 600,
                         fontSize: 13,
-                        cursor: 'pointer',
+                        cursor: primarySideAction.disabled ? 'not-allowed' : 'pointer',
+                        opacity: primarySideAction.disabled ? 0.65 : 1,
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: 6,
@@ -544,7 +693,7 @@ export function RecordView({
                       {primarySideAction.label}
                     </button>
 
-                    {lifecycle.sideActions.length > 1 && (
+                    {sideActions.length > 1 && (
                       <button
                         onClick={() => setDropdownOpen((prev) => !prev)}
                         style={{
@@ -568,7 +717,7 @@ export function RecordView({
               )}
 
               {/* Status Action Dropdown Popover */}
-              {dropdownOpen && lifecycle.sideActions.length > 0 && (
+              {dropdownOpen && sideActions.length > 0 && (
                 <div
                   style={{
                     position: 'absolute',
@@ -583,12 +732,20 @@ export function RecordView({
                     minWidth: 160,
                   }}
                 >
-                  {lifecycle.sideActions.map((action) => {
+                  {sideActions.map((action) => {
                     const isDanger = action.to === 'deleted' || action.to === 'cancelled';
                     return (
                       <button
                         key={action.to}
-                        onClick={() => runTransition(action.to, action.label, action.confirm)}
+                        disabled={action.disabled}
+                        title={action.disabled ? action.disabledReason : undefined}
+                        onClick={() => {
+                          if (action.disabled) {
+                            pushToast(action.disabledReason || 'Action not allowed', 'error');
+                            return;
+                          }
+                          runTransition(action.to, action.label, action.confirm);
+                        }}
                         style={{
                           display: 'flex',
                           alignItems: 'center',
@@ -601,11 +758,14 @@ export function RecordView({
                           color: isDanger ? 'var(--accent-red)' : 'var(--text-primary)',
                           fontWeight: 600,
                           fontSize: 13,
-                          cursor: 'pointer',
+                          cursor: action.disabled ? 'not-allowed' : 'pointer',
+                          opacity: action.disabled ? 0.5 : 1,
                           textAlign: 'left',
                         }}
                         onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = isDanger ? 'var(--badge-danger-bg)' : 'var(--surface-2)';
+                          if (!action.disabled) {
+                            e.currentTarget.style.backgroundColor = isDanger ? 'var(--badge-danger-bg)' : 'var(--surface-2)';
+                          }
                         }}
                         onMouseLeave={(e) => {
                           e.currentTarget.style.backgroundColor = 'transparent';
@@ -659,6 +819,120 @@ export function RecordView({
           </div>
         </div>
 
+        {/* Visual Workflow Stepper Pipeline Banner */}
+        {!isNew && customWf?.stepper && customWf.stepper.steps.length > 0 && (
+          <div
+            className="no-print"
+            style={{
+              marginBottom: 24,
+              padding: '16px 20px',
+              borderRadius: 12,
+              background: 'var(--surface-2)',
+              border: '1px solid var(--border)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-tertiary)' }}>
+                  Workflow Pipeline
+                </span>
+                <span style={{ color: 'var(--border)' }}>&bull;</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                  {customWf.stateLabel}
+                </span>
+              </div>
+              {forwardAction?.disabled && forwardAction.disabledReason && (
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: 'var(--accent-amber, #d97706)',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    background: 'rgba(217, 119, 6, 0.1)',
+                    padding: '3px 10px',
+                    borderRadius: 6,
+                  }}
+                >
+                  <span>⚠️</span> {forwardAction.disabledReason}
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 0, position: 'relative' }}>
+              {customWf.stepper.steps.map((step, idx, arr) => {
+                const isCompleted = step.status === 'completed';
+                const isCurrent = step.status === 'current';
+                const isCancelled = step.status === 'cancelled';
+
+                const nodeBg = isCompleted
+                  ? 'var(--accent-emerald, #10b981)'
+                  : isCurrent
+                  ? 'var(--accent-indigo-dark, #4f46e5)'
+                  : isCancelled
+                  ? 'var(--accent-red, #ef4444)'
+                  : 'var(--surface)';
+                const nodeColor = isCompleted || isCurrent || isCancelled ? '#ffffff' : 'var(--text-tertiary)';
+                const borderColor = isCompleted || isCurrent || isCancelled ? 'transparent' : 'var(--border)';
+
+                return (
+                  <div key={step.key} style={{ flex: 1, display: 'flex', alignItems: 'center', position: 'relative' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', minWidth: 110 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div
+                          style={{
+                            width: 24,
+                            height: 24,
+                            borderRadius: '50%',
+                            background: nodeBg,
+                            color: nodeColor,
+                            border: `1px solid ${borderColor}`,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: 11,
+                            fontWeight: 700,
+                            boxShadow: isCurrent ? '0 0 0 3px rgba(99, 102, 241, 0.2)' : 'none',
+                          }}
+                        >
+                          {isCompleted ? '✓' : isCancelled ? '✕' : idx + 1}
+                        </div>
+                        <span
+                          style={{
+                            fontSize: 12,
+                            fontWeight: isCurrent ? 700 : 600,
+                            color: isCurrent ? 'var(--text-primary)' : isCompleted ? 'var(--text-secondary)' : 'var(--text-tertiary)',
+                          }}
+                        >
+                          {step.label}
+                        </span>
+                      </div>
+                      {(step.performedBy || step.performedAt) && (
+                        <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginLeft: 32, marginTop: 2 }}>
+                          {step.performedBy && <span>by {step.performedBy} </span>}
+                          {step.performedAt && <span>on {new Date(step.performedAt).toLocaleDateString()}</span>}
+                        </div>
+                      )}
+                    </div>
+
+                    {idx < arr.length - 1 && (
+                      <div
+                        style={{
+                          flex: 1,
+                          height: 2,
+                          background: isCompleted ? 'var(--accent-emerald, #10b981)' : 'var(--border)',
+                          margin: '0 8px',
+                        }}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {editing ? (
           <DynamicForm
             formId="record-form"
@@ -671,6 +945,17 @@ export function RecordView({
         ) : data.config.layout?.groups && data.config.layout.groups.length > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
             {data.config.layout.groups.map((group, gIdx) => {
+              if (!evalFieldCondition(group.showWhen, data.record)) return null;
+
+              const visibleFields = group.fields
+                .map((fieldName) => data.config.fields.find((f) => f.name === fieldName))
+                .filter(
+                  (f): f is SDUIFormField =>
+                    Boolean(f && f.type !== 'hidden' && evalFieldCondition(f.showWhen, data.record)),
+                );
+
+              if (visibleFields.length === 0) return null;
+
               const groupCols = group.columns || data.config.layout?.columns || 2;
               return (
                 <div
@@ -707,29 +992,25 @@ export function RecordView({
                       gap: '16px 24px',
                     }}
                   >
-                    {group.fields.map((fieldName) => {
-                      const field = data.config.fields.find((f) => f.name === fieldName);
-                      if (!field || field.type === 'hidden') return null;
-                      return (
-                        <div key={field.name}>
-                          <div
-                            style={{
-                              fontSize: 11,
-                              fontWeight: 700,
-                              color: 'var(--text-tertiary)',
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.05em',
-                              marginBottom: 4,
-                            }}
-                          >
-                            {field.label}
-                          </div>
-                          <div style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500 }}>
-                            <FieldDisplay field={field} value={data.record?.[field.name]} />
-                          </div>
+                    {visibleFields.map((field) => (
+                      <div key={field.name}>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 700,
+                            color: 'var(--text-tertiary)',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em',
+                            marginBottom: 4,
+                          }}
+                        >
+                          {field.label}
                         </div>
-                      );
-                    })}
+                        <div style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500 }}>
+                          <FieldDisplay field={field} value={data.record?.[field.name]} />
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               );
@@ -738,7 +1019,7 @@ export function RecordView({
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             {data.config.fields
-              .filter((f) => f.type !== 'hidden')
+              .filter((f) => f.type !== 'hidden' && evalFieldCondition(f.showWhen, data.record))
               .map((field) => (
                 <div key={field.name}>
                   <div

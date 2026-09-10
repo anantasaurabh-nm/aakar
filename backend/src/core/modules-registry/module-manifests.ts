@@ -12,6 +12,7 @@ export const SYSTEM_MODULE_IDS = new Set([
   'user-roles',
   'module-management',
   'ai-configuration',
+  'connectors',
 ]);
 
 export const MODULE_MANIFESTS: (ModuleManifest & { icon: string })[] = [
@@ -50,5 +51,14 @@ export const MODULE_MANIFESTS: (ModuleManifest & { icon: string })[] = [
     type: 'native',
     surfaces: ['admin'],
     icon: 'ai',
+  },
+  {
+    id: 'connectors',
+    name: 'Connectors & Integrations',
+    version: '1.0.0',
+    description: 'Manage external API keys, tokens, and credentials securely',
+    type: 'native',
+    surfaces: ['admin'],
+    icon: 'sparkles',
   },
 ];

@@ -1,6 +1,18 @@
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 
-// Resolved relative to the backend process's working directory
-// (public_html/backend, true for both `nest start --watch` and `node
-// dist/src/main.js`), not __dirname, so it's immune to dist/ layout changes.
-export const MODULES_DIR = path.resolve(process.cwd(), '..', 'modules');
+function resolveModulesDir(): string {
+  const candidate1 = path.resolve(process.cwd(), 'modules');
+  if (existsSync(candidate1)) return candidate1;
+
+  const candidate2 = path.resolve(process.cwd(), '..', 'modules');
+  if (existsSync(candidate2)) return candidate2;
+
+  const candidate3 = path.resolve(__dirname, '../../../../modules');
+  if (existsSync(candidate3)) return candidate3;
+
+  return candidate1;
+}
+
+export const MODULES_DIR = resolveModulesDir();
+

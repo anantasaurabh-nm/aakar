@@ -1,0 +1,238 @@
+{
+  "schema": "1.0",
+  "brand": {
+    "name": "Hello Data Sources",
+    "icon": "database"
+  },
+  "navigation": {
+    "items": []
+  },
+  "page": {
+    "id": "hello-datasources",
+    "title": "Data Sources Demonstration",
+    "sections": [
+      {
+        "id": "metrics-insights",
+        "label": "Metric Insights (Auto-Generated Dashboard)",
+        "type": "dashboard",
+        "toolbar": [
+          {
+            "id": "period",
+            "type": "filter",
+            "field": "recordDate",
+            "options": [
+              { "label": "Today", "value": "today" },
+              { "label": "This Week", "value": "this_week" },
+              { "label": "This Month", "value": "this_month" },
+              { "label": "All Time", "value": "all_time" }
+            ],
+            "defaultValue": "this_month"
+          }
+        ],
+        "data": {
+          "source": "hello-datasources.metric.insights"
+        },
+        "config": {
+          "cards": [
+            { "id": "total", "label": "Total Metrics", "accent": "indigo" },
+            { "id": "approved", "label": "Completed / Active", "accent": "emerald" },
+            { "id": "pending", "label": "Pending Review", "accent": "amber" }
+          ],
+          "charts": []
+        }
+      },
+      {
+        "id": "all-metrics-table",
+        "label": "All Metrics (Standard Table Source)",
+        "type": "table",
+        "toolbar": [
+          {
+            "id": "new",
+            "type": "action",
+            "label": "New Metric",
+            "action": {
+              "type": "create",
+              "target": "hello-datasources.metric.form"
+            }
+          },
+          { "id": "search", "type": "search" },
+          {
+            "id": "category",
+            "type": "filter",
+            "field": "category",
+            "options": [
+              { "label": "Revenue", "value": "revenue" },
+              { "label": "Operational", "value": "operational" },
+              { "label": "Customer", "value": "customer" },
+              { "label": "Engineering", "value": "engineering" }
+            ]
+          },
+          { "id": "columns", "type": "columns" },
+          {
+            "id": "refresh",
+            "type": "action",
+            "label": "Refresh",
+            "action": { "type": "refresh" }
+          }
+        ],
+        "data": {
+          "source": "hello-datasources.metric"
+        },
+        "config": {
+          "columns": [
+            { "key": "name", "label": "Name", "type": "text", "sortable": true },
+            { "key": "value", "label": "Value", "type": "number", "sortable": true },
+            { "key": "category", "label": "Category", "type": "badge" },
+            { "key": "priority", "label": "Priority", "type": "badge" },
+            { "key": "assigned_to", "label": "Owner", "type": "text" },
+            { "key": "record_date", "label": "Date", "type": "date", "sortable": true },
+            { "key": "record_status", "label": "Status", "type": "badge", "sortable": true }
+          ],
+          "selectable": true,
+          "pageSize": 25,
+          "density": "comfortable",
+          "detailView": true
+        }
+      },
+      {
+        "id": "critical-metrics-table",
+        "label": "High Priority Feed (Parameterized Source)",
+        "type": "table",
+        "toolbar": [
+          { "id": "search", "type": "search" },
+          { "id": "columns", "type": "columns" },
+          {
+            "id": "refresh",
+            "type": "action",
+            "label": "Refresh",
+            "action": { "type": "refresh" }
+          }
+        ],
+        "data": {
+          "source": "hello-datasources.metric",
+          "params": {
+            "priority": "high"
+          }
+        },
+        "config": {
+          "columns": [
+            { "key": "name", "label": "Critical Metric", "type": "text", "sortable": true },
+            { "key": "value", "label": "Value", "type": "number", "sortable": true },
+            { "key": "category", "label": "Category", "type": "badge" },
+            { "key": "assigned_to", "label": "Owner", "type": "text" }
+          ],
+          "selectable": false,
+          "pageSize": 10,
+          "density": "comfortable",
+          "detailView": true
+        }
+      },
+      {
+        "id": "platform-users-table",
+        "label": "Platform Users (Consuming Built-in Core Source)",
+        "type": "table",
+        "toolbar": [
+          { "id": "search", "type": "search" },
+          {
+            "id": "refresh",
+            "type": "action",
+            "label": "Refresh",
+            "action": { "type": "refresh" }
+          }
+        ],
+        "data": {
+          "source": "users"
+        },
+        "config": {
+          "columns": [
+            { "key": "username", "label": "User", "type": "text", "sortable": true },
+            { "key": "email", "label": "Email", "type": "text", "sortable": true },
+            { "key": "role", "label": "Role", "type": "badge", "sortable": true },
+            { "key": "isActive", "label": "Active", "type": "boolean" }
+          ],
+          "selectable": false,
+          "pageSize": 10,
+          "density": "compact",
+          "detailView": false
+        }
+      },
+      {
+        "id": "declarative-kpi-dashboard",
+        "label": "Declarative Capability (Direct from capabilities.json)",
+        "type": "dashboard",
+        "toolbar": [
+          {
+            "id": "refresh",
+            "type": "action",
+            "label": "Refresh",
+            "action": { "type": "refresh" }
+          }
+        ],
+        "data": {
+          "source": "capabilities.hello-datasources.declarative-kpi"
+        },
+        "config": {
+          "cards": [
+            { "id": "declarative_mode", "label": "Mode", "accent": "indigo" },
+            { "id": "total", "label": "Total Count", "accent": "emerald" },
+            { "id": "zero_code", "label": "Backend Code Needed", "accent": "amber" }
+          ],
+          "charts": []
+        }
+      },
+      {
+        "id": "system-health-dashboard",
+        "label": "TypeScript Code Capability Dashboard (From capabilities/system-health.ts)",
+        "type": "dashboard",
+        "toolbar": [
+          {
+            "id": "refresh",
+            "type": "action",
+            "label": "Refresh",
+            "action": { "type": "refresh" }
+          }
+        ],
+        "data": {
+          "source": "capabilities.hello-datasources.system-health"
+        },
+        "config": {
+          "cards": [
+            { "id": "health_score", "label": "System Health Score", "accent": "emerald" },
+            { "id": "total", "label": "Active Indicators", "accent": "indigo" },
+            { "id": "latency_kpi", "label": "API Response P95", "accent": "amber" }
+          ],
+          "charts": []
+        }
+      },
+      {
+        "id": "critical-alerts-table",
+        "label": "TypeScript Code Capability Table (From capabilities/critical-alerts.ts)",
+        "type": "table",
+        "toolbar": [
+          { "id": "search", "type": "search" },
+          {
+            "id": "refresh",
+            "type": "action",
+            "label": "Refresh",
+            "action": { "type": "refresh" }
+          }
+        ],
+        "data": {
+          "source": "capabilities.hello-datasources.critical-alerts"
+        },
+        "config": {
+          "columns": [
+            { "key": "name", "label": "Alert Indicator", "type": "text", "sortable": true },
+            { "key": "value", "label": "Value", "type": "number", "sortable": true },
+            { "key": "priority", "label": "Severity", "type": "badge" },
+            { "key": "assigned_to", "label": "Owner", "type": "text" }
+          ],
+          "selectable": false,
+          "pageSize": 10,
+          "density": "compact",
+          "detailView": true
+        }
+      }
+    ]
+  }
+}

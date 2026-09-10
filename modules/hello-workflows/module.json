@@ -1,0 +1,9 @@
+{
+  "id": "hello-workflows",
+  "name": "Workflows Lab",
+  "version": "1.0.0",
+  "description": "Level 4 Module demonstrating declarative workflows, maker-checker governance, and approval pipelines",
+  "type": "native",
+  "surfaces": ["app"],
+  "dependencies": {}
+}

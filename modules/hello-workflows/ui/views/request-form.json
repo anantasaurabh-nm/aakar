@@ -1,0 +1,112 @@
+{
+  "id": "request-form",
+  "label": "Approval Request Details",
+  "type": "form",
+  "toolbar": [
+    {
+      "id": "cancel",
+      "type": "action",
+      "label": "Cancel",
+      "action": {
+        "type": "cancel"
+      }
+    },
+    {
+      "id": "save",
+      "type": "action",
+      "label": "Submit Request",
+      "action": {
+        "type": "submit"
+      }
+    }
+  ],
+  "config": {
+    "layout": {
+      "type": "grid",
+      "columns": 2,
+      "groups": [
+        {
+          "id": "overview",
+          "title": "Request Overview",
+          "description": "General identification and categorization",
+          "columns": 2,
+          "fields": ["title", "category"]
+        },
+        {
+          "id": "budget",
+          "title": "Budget & Priority",
+          "description": "Financial estimation and business urgency",
+          "columns": 2,
+          "fields": ["amount", "urgency"]
+        },
+        {
+          "id": "business_case",
+          "title": "Business Justification",
+          "description": "Detailed justification required for review and approval",
+          "columns": 2,
+          "fields": ["justification"]
+        },
+        {
+          "id": "review",
+          "title": "Reviewer & Governance Notes",
+          "description": "Feedback, audit notes, or approval comments",
+          "columns": 2,
+          "fields": ["review_notes"]
+        }
+      ]
+    },
+    "fields": [
+      {
+        "name": "title",
+        "label": "Request Title",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "category",
+        "label": "Category",
+        "type": "select",
+        "options": [
+          { "label": "Equipment & Hardware", "value": "equipment" },
+          { "label": "Software & Subscriptions", "value": "software" },
+          { "label": "Business Travel", "value": "travel" },
+          { "label": "Training & Certification", "value": "training" },
+          { "label": "Facilities & Office", "value": "facilities" }
+        ],
+        "required": true
+      },
+      {
+        "name": "amount",
+        "label": "Estimated Cost ($)",
+        "type": "number",
+        "required": true
+      },
+      {
+        "name": "urgency",
+        "label": "Priority / Urgency",
+        "type": "select",
+        "options": [
+          { "label": "Low", "value": "low" },
+          { "label": "Medium", "value": "medium" },
+          { "label": "High", "value": "high" },
+          { "label": "Critical", "value": "critical" }
+        ]
+      },
+      {
+        "name": "justification",
+        "label": "Business Justification",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "review_notes",
+        "label": "Reviewer Feedback / Comments",
+        "type": "textarea"
+      }
+    ],
+    "submitAction": {
+      "type": "submit",
+      "target": "hello-workflows.request.create"
+    }
+  }
+}

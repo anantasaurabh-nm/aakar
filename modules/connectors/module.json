@@ -1,0 +1,11 @@
+{
+  "id": "connectors",
+  "name": "Connectors & Integrations",
+  "version": "1.0.0",
+  "description": "Manage external API keys, tokens, and credentials securely",
+  "type": "native",
+  "surfaces": ["admin", "app"],
+  "dependencies": {
+    "core": ">=1.0.0"
+  }
+}

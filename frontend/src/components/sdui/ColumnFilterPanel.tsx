@@ -276,7 +276,7 @@ const panelStyle: React.CSSProperties = {
   position: 'absolute',
   top: 'calc(100% + 8px)',
   right: 0,
-  zIndex: 50,
+  zIndex: 100,
   background: 'var(--surface)',
   border: '1px solid var(--border)',
   borderRadius: 14,

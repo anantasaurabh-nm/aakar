@@ -1,0 +1,158 @@
+{
+  "id": "note-form",
+  "label": "Note Details",
+  "type": "form",
+  "config": {
+    "layout": {
+      "type": "grid",
+      "columns": 2,
+      "groups": [
+        {
+          "id": "overview",
+          "title": "Overview",
+          "description": "General note metadata and categorization",
+          "columns": 2,
+          "fields": ["title", "category"]
+        },
+        {
+          "id": "assignment",
+          "title": "Assignment & Content",
+          "description": "Owner assignment and detailed note body",
+          "columns": 2,
+          "fields": ["assigned_to", "content"]
+        }
+      ]
+    },
+    "fields": [
+      {
+        "name": "title",
+        "label": "Title",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "category",
+        "label": "Category",
+        "type": "select",
+        "options": [
+          { "label": "Work", "value": "work" },
+          { "label": "Personal", "value": "personal" },
+          { "label": "Ideas", "value": "ideas" },
+          { "label": "Test", "value": "test" }
+        ]
+      },
+      {
+        "name": "assigned_to",
+        "label": "Assigned To",
+        "type": "select",
+        "entity": "core.user",
+        "displayField": "username",
+        "defaultValue": "$currentuser"
+      },
+      {
+        "name": "content",
+        "label": "Content",
+        "type": "textarea"
+      }
+    ],
+    "submitAction": {
+      "type": "submit",
+      "target": "hello-views.note.create"
+    }
+  },
+  "relatedSections": [
+    {
+      "id": "my-notes-tab",
+      "label": "My Notes",
+      "type": "table",
+      "toolbar": [
+        {
+          "id": "refresh",
+          "type": "action",
+          "label": "Refresh",
+          "action": { "type": "refresh" }
+        }
+      ],
+      "data": {
+        "source": "hello-views.note",
+        "params": {
+          "assigned_to": "$currentuser",
+          "pageSize": 5
+        }
+      },
+      "config": {
+        "columns": [
+          { "key": "title", "label": "Title", "type": "text", "sortable": true },
+          { "key": "category", "label": "Category", "type": "badge" },
+          { "key": "assigned_to", "label": "Assigned To", "type": "text" },
+          { "key": "record_date", "label": "Date", "type": "date", "sortable": true },
+          { "key": "record_status", "label": "Status", "type": "badge", "sortable": true }
+        ],
+        "pageSize": 5,
+        "detailView": true
+      }
+    },
+    {
+      "id": "category-notes",
+      "label": "Related Category Notes",
+      "type": "table",
+      "toolbar": [
+        {
+          "id": "refresh",
+          "type": "action",
+          "label": "Refresh",
+          "action": { "type": "refresh" }
+        }
+      ],
+      "data": {
+        "source": "hello-views.note",
+        "params": {
+          "category": "$record.category"
+        }
+      },
+      "config": {
+        "columns": [
+          { "key": "title", "label": "Title", "type": "text", "sortable": true },
+          { "key": "category", "label": "Category", "type": "badge" },
+          { "key": "assigned_to", "label": "Assigned To", "type": "text" },
+          { "key": "record_date", "label": "Date", "type": "date", "sortable": true },
+          { "key": "record_status", "label": "Status", "type": "badge", "sortable": true }
+        ],
+        "pageSize": 10,
+        "detailView": true
+      }
+    },
+    {
+      "id": "recent-notes",
+      "label": "Recent Notes",
+      "type": "table",
+      "toolbar": [
+        {
+          "id": "refresh",
+          "type": "action",
+          "label": "Refresh",
+          "action": { "type": "refresh" }
+        }
+      ],
+      "data": {
+        "source": "hello-views.note",
+        "params": {
+          "pageSize": 5,
+          "sortBy": "record_date",
+          "sortDir": "desc"
+        }
+      },
+      "config": {
+        "columns": [
+          { "key": "title", "label": "Title", "type": "text", "sortable": true },
+          { "key": "category", "label": "Category", "type": "badge" },
+          { "key": "assigned_to", "label": "Assigned To", "type": "text" },
+          { "key": "record_date", "label": "Date", "type": "date", "sortable": true },
+          { "key": "record_status", "label": "Status", "type": "badge", "sortable": true }
+        ],
+        "pageSize": 5,
+        "detailView": true
+      }
+    }
+  ]
+}

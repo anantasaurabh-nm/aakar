@@ -134,6 +134,28 @@ const REGISTRY: Record<string, SubmitTarget> = {
     invalidates: [],
     execute: (values) => apiClient.delete(`actions/ai-model-configs/${values.id}`),
   },
+
+  'connectors.connection.create': {
+    invalidates: ['connectors', 'connectors.list', 'connectors.connection'],
+    execute: (values) => apiClient.post('actions/connectors/create', values),
+  },
+  'connectors.connection.update': {
+    invalidates: ['connectors', 'connectors.list', 'connectors.connection'],
+    execute: (values) => apiClient.patch(`actions/connectors/${values.id}`, values),
+  },
+  'connectors.connection.delete': {
+    invalidates: ['connectors', 'connectors.list', 'connectors.connection'],
+    execute: (values) => apiClient.delete(`actions/connectors/${values.id}`),
+  },
+  'connectors.connection.test': {
+    invalidates: ['connectors', 'connectors.list', 'connectors.connection'],
+    execute: (values) => {
+      if (values.id && Object.keys(values).length <= 2) {
+        return apiClient.post(`actions/connectors/${values.id}/test`);
+      }
+      return apiClient.post('actions/connectors/test', values);
+    },
+  },
 };
 
 export class UnknownActionTargetError extends Error {
@@ -146,6 +168,16 @@ export function getSubmitTarget(target: string): SubmitTarget {
   const entry = REGISTRY[target];
   if (entry) return entry;
 
+  // Module settings submit targets: e.g. "todo.settings", "actions/todo/settings", "/api/actions/todo/settings"
+  const settingsMatch = target.match(/^(?:(?:\/api\/)?actions\/)?([a-zA-Z0-9_-]+)(?:\.settings|\/settings)$/);
+  if (settingsMatch) {
+    const mod = settingsMatch[1];
+    return {
+      invalidates: [`${mod}.settings`, `data.${mod}.settings`, 'ui', 'data'],
+      execute: (values) => apiClient.post(`actions/${mod}/settings`, values),
+    };
+  }
+
   // Dynamic schema-driven entity submit targets:
   // e.g. "hello-module.greeting.create" -> POST actions/hello-module/greeting
   // e.g. "hello-module.greeting.update" -> PATCH actions/hello-module/greeting/:id
@@ -155,7 +187,7 @@ export function getSubmitTarget(target: string): SubmitTarget {
   const parts = target.split('.');
   if (parts.length === 3) {
     const [mod, ent, op] = parts;
-    const baseInvalidates = [`${mod}.${ent}`, `${mod}.${ent}.insights`];
+    const baseInvalidates = [`${mod}.${ent}`, `${mod}.${ent}.list`, `${mod}.${ent}.insights`];
 
     switch (op) {
       case 'create':

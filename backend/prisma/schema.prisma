@@ -25,8 +25,10 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users     User[]
-  auditLogs AuditLog[]
+  users          User[]
+  auditLogs      AuditLog[]
+  connections    CoreConnection[]
+  moduleSettings ModuleSetting[]
 
   @@map("tenants")
 }
@@ -57,7 +59,8 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  auditLogs    AuditLog[]
+  auditLogs      AuditLog[]
+  moduleSettings ModuleSetting[]
 
   // Module-owned tables (e.g. todo_task.created_by) reference this id via a
   // plain scalar column with no @relation, since those tables aren't Prisma
@@ -197,3 +200,67 @@ model AiModelConfig {
 
   @@map("ai_model_configs")
 }
+
+// ---------------------------------------------------------------------------
+// Core Connectors & External Integrations Vault (Module System PRD v2 §26-27, PRD §9-10)
+// ---------------------------------------------------------------------------
+
+enum ConnectionAuthType {
+  api_key
+  bearer_token
+  basic_auth
+  oauth2
+  custom
+}
+
+enum ConnectionStatus {
+  active
+  inactive
+  error
+}
+
+model CoreConnection {
+  id                   String              @id @default(cuid())
+  tenantId             String
+  tenant               Tenant              @relation(fields: [tenantId], references: [id])
+  provider             String              // e.g. "shopify", "mygate", "slack", "sendgrid", "custom"
+  name                 String              // e.g. "Production Shopify Store"
+  authType             ConnectionAuthType  @default(api_key)
+  baseUrl              String?
+  encryptedCredentials String              // AES-256-GCM encrypted JSON payload
+  maskedPreview        String?             // e.g. "shpat_••••••••3a9f" or "••••••••"
+  status               ConnectionStatus    @default(active)
+  lastTestedAt         DateTime?
+  lastTestedStatus     String?             // "ok" | error message
+  lastUsedAt           DateTime?
+  metadata             Json?               // Non-secret metadata
+  createdBy            String?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  @@unique([tenantId, provider, name])
+  @@index([tenantId, provider])
+  @@map("core_connections")
+}
+
+// ---------------------------------------------------------------------------
+// Module Settings (Module-level configuration with user/global scopes)
+// ---------------------------------------------------------------------------
+
+model ModuleSetting {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  moduleId  String   // e.g. "todo", "crm"
+  userId    String?  // null for global/tenant-wide settings
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key       String   // e.g. "mcpTaskServer", "trelloSyncConnection"
+  value     Json     // connection ID, string, number, boolean, or object
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, moduleId, userId, key])
+  @@index([tenantId, moduleId, userId])
+  @@map("module_settings")
+}
+

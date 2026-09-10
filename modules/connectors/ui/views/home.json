@@ -1,0 +1,135 @@
+{
+  "schema": "1.0",
+  "brand": {
+    "name": "Connectors & Integrations",
+    "icon": "sparkles"
+  },
+  "navigation": {
+    "items": [
+      {
+        "id": "nav-perspectives",
+        "label": "Perspectives",
+        "icon": "layout",
+        "items": [
+          {
+            "id": "persp-all",
+            "label": "All Connections",
+            "icon": "modules",
+            "action": {
+              "type": "navigate",
+              "target": "#all-connections"
+            }
+          }
+        ]
+      },
+      {
+        "id": "nav-bridges",
+        "label": "Admin Hub",
+        "icon": "shield",
+        "items": [
+          {
+            "id": "bridge-ai",
+            "label": "AI Configuration",
+            "icon": "ai",
+            "action": {
+              "type": "navigate",
+              "target": "/admin/ai-configuration"
+            }
+          },
+          {
+            "id": "bridge-modules",
+            "label": "Installed Modules",
+            "icon": "modules",
+            "action": {
+              "type": "navigate",
+              "target": "/admin/module-management"
+            }
+          },
+          {
+            "id": "bridge-home",
+            "label": "Dashboard Hub",
+            "icon": "home",
+            "action": {
+              "type": "navigate",
+              "target": "/"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "page": {
+    "id": "connectors",
+    "title": "Connectors & Integrations",
+    "sections": [
+      {
+        "id": "all-connections",
+        "label": "External Integrations & API Vault",
+        "type": "table",
+        "toolbar": [
+          {
+            "id": "new",
+            "type": "action",
+            "label": "New Connection",
+            "action": {
+              "type": "create",
+              "target": "connectors.connection.form"
+            }
+          },
+          {
+            "id": "search",
+            "type": "search"
+          },
+          {
+            "id": "filter-provider",
+            "type": "filter",
+            "field": "provider",
+            "options": [
+              { "label": "All Providers", "value": "" },
+              { "label": "Shopify Store (Admin API)", "value": "shopify" },
+              { "label": "MyGate (Enterprise / Community)", "value": "mygate" },
+              { "label": "Slack (Webhooks & Bot API)", "value": "slack" },
+              { "label": "SendGrid (Transactional Email)", "value": "sendgrid" },
+              { "label": "OpenAI / Anthropic (LLM Provider)", "value": "openai" },
+              { "label": "Odoo ERP (XML-RPC / REST)", "value": "odoo" },
+              { "label": "Stripe (Payments & Billing)", "value": "stripe" },
+              { "label": "GitHub (REST & Webhooks)", "value": "github" },
+              { "label": "Custom HTTP / In-House API", "value": "custom" }
+            ]
+          },
+          {
+            "id": "columns",
+            "type": "columns"
+          },
+          {
+            "id": "refresh",
+            "type": "action",
+            "label": "Refresh",
+            "action": {
+              "type": "refresh"
+            }
+          }
+        ],
+        "data": {
+          "source": "connectors.connection"
+        },
+        "config": {
+          "columns": [
+            { "key": "name", "label": "Connection Name", "type": "text", "sortable": true },
+            { "key": "provider", "label": "Provider", "type": "badge", "sortable": true },
+            { "key": "authType", "label": "Auth Archetype", "type": "badge", "sortable": true },
+            { "key": "baseUrl", "label": "Base URL", "type": "text" },
+            { "key": "maskedPreview", "label": "Credential Preview", "type": "text" },
+            { "key": "status", "label": "Status", "type": "badge", "sortable": true },
+            { "key": "lastTestedStatus", "label": "Diagnostics", "type": "badge" },
+            { "key": "lastUsedAt", "label": "Last Used", "type": "date", "sortable": true }
+          ],
+          "selectable": true,
+          "pageSize": 50,
+          "density": "comfortable",
+          "detailView": true
+        }
+      }
+    ]
+  }
+}

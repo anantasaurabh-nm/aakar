@@ -16,6 +16,9 @@ import { UserManagementModule } from './apps/user-management/user-management.mod
 import { UserRolesModule } from './apps/user-roles/user-roles.module';
 import { ModuleManagementModule } from './apps/module-management/module-management.module';
 import { AiConfigurationModule } from './apps/ai-configuration/ai-configuration.module';
+import { ConnectorsCoreModule } from './core/connectors/connectors.module';
+import { ConnectorsAppModule } from './apps/connectors/connectors.module';
+import { ModuleSettingsModule } from './core/module-settings/module-settings.module';
 
 @Module({
   imports: [
@@ -28,11 +31,14 @@ import { AiConfigurationModule } from './apps/ai-configuration/ai-configuration.
     RbacModule,
     AuthModule,
     AiModule,
+    ConnectorsCoreModule,
+    ModuleSettingsModule,
     HomeModule,
     UserManagementModule,
     UserRolesModule,
     ModuleManagementModule,
     AiConfigurationModule,
+    ConnectorsAppModule,
     EntityEngineModule,
   ],
 })

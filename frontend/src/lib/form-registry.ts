@@ -10,6 +10,7 @@ const REGISTRY: Record<string, string> = {
   'user.form': 'ui/views/user-management/user-form',
   'user-management.user.form': 'ui/views/user-management/user-form',
   'user-roles.role.form': 'ui/views/user-roles/role-form',
+  'connectors.connection.form': 'ui/views/connectors/connection/form',
 };
 
 export class UnknownFormTargetError extends Error {

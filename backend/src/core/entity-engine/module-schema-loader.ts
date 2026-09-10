@@ -1,7 +1,14 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { Logger } from '@nestjs/common';
-import { ModuleManifestSchema, ModuleEntitySchemaSchema, type ModuleManifest, type ModuleEntitySchema } from '@erp/shared-contracts';
+import {
+  ModuleManifestSchema,
+  ModuleEntitySchemaSchema,
+  ModuleWorkflowDefinitionSchema,
+  type ModuleManifest,
+  type ModuleEntitySchema,
+  type ModuleWorkflowDefinition,
+} from '@erp/shared-contracts';
 import { MODULES_DIR } from './modules-dir';
 
 const logger = new Logger('ModuleSchemaLoader');
@@ -11,6 +18,7 @@ export interface DiscoveredModule {
   schema: ModuleEntitySchema | null;
   views?: Record<string, unknown>;
   capabilities?: Array<Record<string, unknown>>;
+  workflows?: Record<string, ModuleWorkflowDefinition>;
 }
 
 /** Scans public_html/modules/*\/module.json (+ optional schema.json and optional ui/views/*.json). Invalid entries are logged and skipped. */
@@ -97,11 +105,34 @@ export function discoverModulesOnDisk(): DiscoveredModule[] {
       }
     }
 
+    // 3. Declarative workflows in workflows/ (*.workflow.json or *.json)
+    const workflows: Record<string, ModuleWorkflowDefinition> = {};
+    const workflowsDir = path.join(dir, 'workflows');
+    if (existsSync(workflowsDir)) {
+      for (const wfEntry of readdirSync(workflowsDir, { withFileTypes: true })) {
+        if (wfEntry.isFile() && wfEntry.name.endsWith('.json')) {
+          try {
+            const rawWf = JSON.parse(readFileSync(path.join(workflowsDir, wfEntry.name), 'utf8'));
+            const parsedWf = ModuleWorkflowDefinitionSchema.safeParse(rawWf);
+            if (parsedWf.success) {
+              const entityKey = parsedWf.data.entity;
+              workflows[entityKey] = parsedWf.data;
+            } else {
+              logger.warn(`Skipping invalid workflow "${wfEntry.name}" in "${entry.name}": ${parsedWf.error.message}`);
+            }
+          } catch (err) {
+            logger.warn(`Skipping invalid workflow file "${wfEntry.name}" in "${entry.name}": ${err instanceof Error ? err.message : String(err)}`);
+          }
+        }
+      }
+    }
+
     found.push({
       manifest: manifestParsed.data,
       schema,
       ...(Object.keys(views).length > 0 ? { views } : {}),
       ...(capabilitiesList.length > 0 ? { capabilities: capabilitiesList } : {}),
+      ...(Object.keys(workflows).length > 0 ? { workflows } : {}),
     });
   }
   return found;
@@ -110,3 +141,14 @@ export function discoverModulesOnDisk(): DiscoveredModule[] {
 export function loadModuleOnDisk(moduleId: string): DiscoveredModule | null {
   return discoverModulesOnDisk().find((m) => m.manifest.id === moduleId) ?? null;
 }
+
+export function getWorkflowForEntity(moduleId: string, entityKey: string): ModuleWorkflowDefinition | null {
+  const mod = loadModuleOnDisk(moduleId);
+  return mod?.workflows?.[entityKey] ?? null;
+}
+
+export function getSettingsForModule(moduleId: string) {
+  const mod = loadModuleOnDisk(moduleId);
+  return mod?.manifest.settings ?? null;
+}
+

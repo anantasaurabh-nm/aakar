@@ -1,5 +1,11 @@
 import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
-import { ColumnFilterSchema, SDUI_SCHEMA_VERSION, type ColumnFilter } from '@erp/shared-contracts';
+import {
+  ColumnFilterSchema,
+  SDUI_SCHEMA_VERSION,
+  type ColumnFilter,
+  type ComputedRecordWorkflow,
+  type ComputedWorkflowAction,
+} from '@erp/shared-contracts';
 import type { RecordStatus } from '@prisma/client';
 
 /** A malformed `filters` query string must never 500 the list endpoint — treat it as "no filters." */
@@ -28,8 +34,9 @@ import {
   firstSelectField,
   buildDashboardConfigFromInsights,
 } from './table-section.builder';
-import { loadModuleOnDisk } from './module-schema-loader';
+import { loadModuleOnDisk, getWorkflowForEntity, getSettingsForModule } from './module-schema-loader';
 import { ReferenceResolverService } from './reference-resolver.service';
+import { ModuleSettingsService } from '../module-settings/module-settings.service';
 
 @Controller()
 @UseGuards(JwtAuthGuard, ModuleEnabledGuard)
@@ -41,6 +48,7 @@ export class EntityEngineController {
     private readonly moduleRegistry: ModuleRegistryService,
     private readonly permissionsService: PermissionsService,
     private readonly referenceResolver: ReferenceResolverService,
+    private readonly moduleSettingsService: ModuleSettingsService,
   ) {}
 
   private async assertRead(user: AuthenticatedUser, module: string, entityKey: string) {
@@ -58,10 +66,58 @@ export class EntityEngineController {
   }
 
   @Get('ui/pages/app/:module')
-  async getPage(@CurrentUser() user: AuthenticatedUser, @Param('module') module: string) {
+  async getPage(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('module') module: string,
+    @Query('view') view?: string,
+  ) {
     const registryEntry = await this.moduleRegistry.get(module);
     const entities = Object.entries(this.entitiesForModule(module));
     if (entities.length > 0) await this.assertRead(user, module, entities[0]![0]);
+    const hasSettings = Boolean(getSettingsForModule(module));
+
+    // Handle standard SDUI Settings View if requested
+    if (view === 'settings' && hasSettings) {
+      const roleUpper = user.role?.toUpperCase();
+      const isAdmin = roleUpper === 'ADMIN' || roleUpper === 'SYSTEM_ADMIN' || roleUpper === 'SUPER_ADMIN';
+      const formConfig = await this.moduleSettingsService.getSettingsFormConfig(
+        user.tenantId,
+        module,
+        user.id,
+        isAdmin,
+      );
+
+      if (formConfig) {
+        const modManifest = loadModuleOnDisk(module)?.manifest;
+        const modName = modManifest?.name ?? registryEntry?.name ?? module;
+        return {
+          schema: SDUI_SCHEMA_VERSION,
+          brand: {
+            name: modName,
+            icon: registryEntry?.icon ?? (modManifest as any)?.icon ?? 'settings',
+            moduleId: module,
+            hasSettings,
+          },
+          navigation: { items: [] },
+          page: {
+            id: `${module}-settings-view`,
+            title: `${modName} Settings`,
+            sections: [
+              {
+                id: `${module}-settings-form`,
+                label: `${modName} Settings`,
+                type: 'form',
+                toolbar: [
+                  { id: 'cancel', type: 'action', label: 'Cancel', action: { type: 'cancel' } },
+                  { id: 'save', type: 'action', label: 'Save Settings', action: { type: 'submit' } },
+                ],
+                config: formConfig,
+              },
+            ],
+          },
+        };
+      }
+    }
 
     // Check if module defines a custom home view (e.g. ui/views/home.json)
     const moduleOnDisk = loadModuleOnDisk(module);
@@ -117,6 +173,8 @@ export class EntityEngineController {
         brand: {
           name: registryEntry?.name ?? (customHome.brand as any)?.name ?? module,
           icon: registryEntry?.icon ?? (customHome.brand as any)?.icon ?? module,
+          moduleId: module,
+          hasSettings,
         },
         navigation: (customHome.navigation as any) ?? { items: [] },
         page: {
@@ -186,7 +244,12 @@ export class EntityEngineController {
 
     return {
       schema: SDUI_SCHEMA_VERSION,
-      brand: { name: registryEntry?.name ?? module, icon: registryEntry?.icon ?? module },
+      brand: {
+        name: registryEntry?.name ?? module,
+        icon: registryEntry?.icon ?? module,
+        moduleId: module,
+        hasSettings,
+      },
       navigation: { items: [] },
       page: { id: module, title: registryEntry?.name ?? module, sections },
     };
@@ -304,6 +367,108 @@ export class EntityEngineController {
       (customView?.config as any)?.submitAction?.target ||
       (existing ? `${module}.${entityKey}.update` : `${module}.${entityKey}.create`);
 
+    // Resolve custom Level 4 Workflow metadata if defined for this entity
+    let computedWorkflow: ComputedRecordWorkflow | undefined = undefined;
+    const workflow = getWorkflowForEntity(module, entityKey);
+    if (workflow && existing) {
+      const currentStatus = (existing.record_status as string) || workflow.initialStatus || 'draft';
+      const stateConfig = workflow.states[currentStatus as keyof typeof workflow.states];
+      if (stateConfig) {
+        let forwardAction: ComputedWorkflowAction | undefined = undefined;
+        const sideActions: ComputedWorkflowAction[] = [];
+
+        for (const t of stateConfig.transitions || []) {
+          let disabled = false;
+          let disabledReason: string | undefined = undefined;
+
+          // Check maker-checker: submitter/creator cannot approve their own submission
+          if (t.makerChecker) {
+            const creator = existing.created_by;
+            const submitter = existing.submitted_by;
+            if (user.id === creator || (submitter && user.id === submitter)) {
+              disabled = true;
+              disabledReason = 'Maker-checker rule: You cannot approve your own submission';
+            }
+          }
+
+          // Check required roles
+          if (!disabled && t.requiredRoles && t.requiredRoles.length > 0) {
+            const allowedRoles = t.requiredRoles.map((r) => r.toUpperCase());
+            if (!allowedRoles.includes(user.role.toUpperCase())) {
+              disabled = true;
+              disabledReason = `Requires role: ${t.requiredRoles.join(', ')}`;
+            }
+          }
+
+          const actionItem: ComputedWorkflowAction = {
+            label: t.label,
+            to: t.to,
+            actionType: t.actionType || 'side',
+            confirm: t.confirm,
+            disabled,
+            disabledReason,
+          };
+
+          if (t.actionType === 'forward' && !forwardAction) {
+            forwardAction = actionItem;
+          } else {
+            sideActions.push(actionItem);
+          }
+        }
+
+        // Compute visual stepper pipeline
+        const pipeline = workflow.pipeline || ['draft', 'submitted', 'approved'];
+        const currentPipelineIndex = pipeline.indexOf(currentStatus);
+
+        const steps = pipeline.map((stepKey, idx) => {
+          let stepStatus: 'completed' | 'current' | 'upcoming' | 'cancelled' = 'upcoming';
+          if (currentStatus === 'cancelled') {
+            stepStatus = stepKey === currentStatus ? 'cancelled' : idx < currentPipelineIndex ? 'completed' : 'upcoming';
+          } else if (idx < currentPipelineIndex) {
+            stepStatus = 'completed';
+          } else if (idx === currentPipelineIndex) {
+            stepStatus = 'current';
+          }
+
+          let performedBy: string | null = null;
+          let performedAt: string | null = null;
+          if (stepKey === 'submitted') {
+            performedBy = (existing.submitted_by as string) || (existing.created_by as string) || null;
+            performedAt = (existing.submitted_at as string) || null;
+          } else if (stepKey === 'approved') {
+            performedBy = (existing.approved_by as string) || null;
+            performedAt = (existing.approved_at as string) || null;
+          } else if (stepKey === 'draft') {
+            performedBy = (existing.created_by as string) || null;
+            performedAt = (existing.created_at as string) || null;
+          }
+
+          const stepLabel = workflow.states[stepKey as keyof typeof workflow.states]?.label || stepKey.toUpperCase();
+          return {
+            key: stepKey,
+            label: stepLabel,
+            status: stepStatus,
+            performedBy,
+            performedAt,
+          };
+        });
+
+        computedWorkflow = {
+          workflowId: workflow.id,
+          currentStatus,
+          stateLabel: stateConfig.label,
+          badgeTone: stateConfig.badgeTone || 'neutral',
+          canEdit: stateConfig.canEdit ?? false,
+          forwardAction,
+          sideActions,
+          stepper: {
+            currentStepIndex: currentPipelineIndex >= 0 ? currentPipelineIndex : 0,
+            steps,
+          },
+        };
+      }
+    }
+
     return {
       id: `${module}-${entityKey}-form`,
       label: existing ? `Edit ${entity.label ?? entityKey}` : `New ${entity.label ?? entityKey}`,
@@ -319,6 +484,7 @@ export class EntityEngineController {
       },
       relatedSections: relatedSections.length > 0 ? relatedSections : undefined,
       record: existing,
+      workflow: computedWorkflow,
     };
   }
 

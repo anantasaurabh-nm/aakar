@@ -1,10 +1,11 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { Prisma, type RecordStatus } from '@prisma/client';
 import type { ColumnFilter, EntityDefinition } from '@erp/shared-contracts';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { ident, isValidIdentifier, tableName } from './sql-ident.util';
+import { getWorkflowForEntity } from './module-schema-loader';
 
 /** Every value is still bound as a normal Prisma.sql placeholder — only the column identifier ever reaches Prisma.raw, and only after ident()'s regex check, same pattern as the rest of this file. */
 export function operatorToSql(column: Prisma.Sql, operator: ColumnFilter['operator'], value: ColumnFilter['value']): Prisma.Sql {
@@ -209,15 +210,92 @@ export class EntityRepositoryService {
     return this.getById(moduleId, entityKey, tenantId, id);
   }
 
-  async transition(moduleId: string, entityKey: string, tenantId: string, userId: string, id: string, to: RecordStatus): Promise<Row> {
+  async transition(
+    moduleId: string,
+    entityKey: string,
+    tenantId: string,
+    userId: string,
+    id: string,
+    to: RecordStatus,
+    context?: { userRole?: string; reason?: string },
+  ): Promise<Row> {
     const existing = await this.getById(moduleId, entityKey, tenantId, id);
     const from = existing.record_status as RecordStatus;
-    const allowed = ALLOWED_TRANSITIONS[from] ?? [];
-    if (!allowed.includes(to)) {
-      throw new BadRequestException(`Cannot transition from "${from}" to "${to}"`);
+
+    // Check for custom Level 4 Workflow definition
+    const workflow = getWorkflowForEntity(moduleId, entityKey);
+    if (workflow) {
+      const stateConfig = workflow.states[from];
+      if (!stateConfig) {
+        throw new BadRequestException(`Unknown state "${from}" for workflow "${workflow.id}"`);
+      }
+      const transitionDef = stateConfig.transitions?.find((t) => t.to === to);
+      if (!transitionDef) {
+        throw new BadRequestException(
+          `Cannot transition from "${from}" to "${to}" for ${workflow.name || entityKey}`,
+        );
+      }
+
+      // Maker-checker enforcement: Submitter / creator cannot approve their own record
+      if (transitionDef.makerChecker) {
+        const creator = existing.created_by;
+        const submitter = existing.submitted_by;
+        if (userId === creator || (submitter && userId === submitter)) {
+          throw new ForbiddenException(
+            'Maker-checker rule violation: Submitter cannot approve their own record',
+          );
+        }
+      }
+
+      // Role check: Only authorized roles can execute this transition
+      if (transitionDef.requiredRoles && transitionDef.requiredRoles.length > 0 && context?.userRole) {
+        const allowedRoles = transitionDef.requiredRoles.map((r) => r.toUpperCase());
+        if (!allowedRoles.includes(context.userRole.toUpperCase())) {
+          throw new ForbiddenException(
+            `Role "${context.userRole}" is not authorized for this transition. Required: ${transitionDef.requiredRoles.join(', ')}`,
+          );
+        }
+      }
+
+      // Required fields validation
+      if (transitionDef.requiredFields && transitionDef.requiredFields.length > 0) {
+        for (const field of transitionDef.requiredFields) {
+          if (existing[field] === undefined || existing[field] === null || existing[field] === '') {
+            throw new BadRequestException(
+              `Field "${field}" must be filled before transitioning to "${to}"`,
+            );
+          }
+        }
+      }
+    } else {
+      // Default 5-state lifecycle
+      const allowed = ALLOWED_TRANSITIONS[from] ?? [];
+      if (!allowed.includes(to)) {
+        throw new BadRequestException(`Cannot transition from "${from}" to "${to}"`);
+      }
     }
+
     const table = ident(tableName(moduleId, entityKey));
-    await this.prisma.$executeRaw`UPDATE ${table} SET record_status = ${to}, updated_by = ${userId}, updated_at = now() WHERE id = ${id} AND tenant_id = ${tenantId}`;
+    const updates = [
+      Prisma.sql`record_status = ${to}`,
+      Prisma.sql`updated_by = ${userId}`,
+      Prisma.sql`updated_at = now()`,
+    ];
+
+    // Automatically stamp workflow approval metadata if columns exist on the table
+    if (to === 'submitted') {
+      if ('submitted_by' in existing) updates.push(Prisma.sql`submitted_by = ${userId}`);
+      if ('submitted_at' in existing) updates.push(Prisma.sql`submitted_at = now()`);
+    } else if (to === 'approved') {
+      if ('approved_by' in existing) updates.push(Prisma.sql`approved_by = ${userId}`);
+      if ('approved_at' in existing) updates.push(Prisma.sql`approved_at = now()`);
+    } else if (to === 'cancelled') {
+      if ('cancelled_by' in existing) updates.push(Prisma.sql`cancelled_by = ${userId}`);
+      if ('cancelled_at' in existing) updates.push(Prisma.sql`cancelled_at = now()`);
+    }
+
+    await this.prisma.$executeRaw`UPDATE ${table} SET ${Prisma.join(updates, ', ')} WHERE id = ${id} AND tenant_id = ${tenantId}`;
+
     await this.audit.record({
       tenantId,
       entity: `${moduleId}.${entityKey}`,
@@ -226,7 +304,9 @@ export class EntityRepositoryService {
       fromStatus: from,
       toStatus: to,
       performedBy: userId,
+      reason: context?.reason,
     });
+
     return this.getById(moduleId, entityKey, tenantId, id);
   }
 
