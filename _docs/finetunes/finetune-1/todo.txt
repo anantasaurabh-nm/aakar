@@ -1,0 +1,331 @@
+# App & Data Table UI Updates
+
+## 1. Update App View
+
+**Page:** `http://localhost:3000/`
+**Navigation:** Click **Apps** in the Section Rotator.
+
+### 1.1 App Listing
+
+#### Current Behavior
+
+* Apps loaded on the homepage are displayed as a simple list.
+
+#### Required Update
+
+Replace the list view with a modern **grid-based card layout**.
+
+Each app card should:
+
+* Use a **card-based grid layout**.
+* Have a modern **glassmorphism effect**.
+* Display:
+
+  * App icon
+  * App title
+  * App description
+* Be fully clickable.
+* Clicking anywhere on the card should open the corresponding app.
+
+### 1.2 App Search
+
+#### Current Behavior
+
+* The search bar is positioned in the top-left.
+* Search is currently not working correctly.
+* Regardless of the search input, the same Todo app is displayed.
+
+#### Required Update
+
+* Move the search bar to the **top-right** of the Apps page.
+* Implement functional search.
+* Search should filter the available apps based on the relevant app information, such as:
+
+  * Title
+  * Description
+* The displayed results should update based on the search query.
+* If no apps match the search query, display a clear **"Not Found"** / **"No apps found"** message.
+* Clearing the search should restore the complete app list.
+
+---
+
+# 2. Update Table View
+
+## 2.1 Data Table Features
+
+### Current Behavior
+
+The current table view provides only minimal functionality.
+
+### Required Update
+
+Enhance the table view to provide functionality comparable to **DataTables**.
+
+Reference:
+
+* [DataTables](https://datatables.net/?utm_source=chatgpt.com)
+* [DataTables React Manual](https://datatables.net/manual/components/react/?utm_source=chatgpt.com)
+
+The table should support the following features.
+
+### 2.2 Sorting
+
+* Columns should support sorting.
+* Sorting should work according to the underlying data type.
+* Support ascending and descending sorting.
+
+### 2.3 Dynamic Column Filtering
+
+Column filters/operators should be dynamically determined by the column's data type.
+
+Examples:
+
+| Data Type        | Supported Operators                                                   |
+| ---------------- | --------------------------------------------------------------------- |
+| String           | `contains`, `does not contain`, `=`, `!=`, `starts with`, `ends with` |
+| Integer / Number | `=`, `!=`, `>`, `<`, `>=`, `<=`                                       |
+| Date / DateTime  | `=`, `!=`, `>`, `<`, `>=`, `<=`                                       |
+| Enum             | `=`, `!=`                                                             |
+| Boolean          | `=`, `!=`                                                             |
+
+The filtering UI should automatically select the appropriate operators based on the column's data type.
+
+### 2.4 Export
+
+Provide an **Export** feature.
+
+Required formats:
+
+* CSV
+* XLSX
+
+If the selected DataTables implementation provides export functionality, use it where appropriate rather than implementing duplicate functionality.
+
+### 2.5 View Modes
+
+Allow users to switch between:
+
+* **Table view**
+* **Card view**
+
+The selected view should display the same underlying records and data.
+
+### 2.6 Row Selection & Bulk Actions
+
+Add row selection using checkboxes.
+
+Requirements:
+
+* Each row should have a selection checkbox.
+* Provide a header checkbox for selecting/deselecting all visible rows.
+* Allow bulk actions on selected rows.
+* Initially support:
+
+  * **Delete**
+
+The UI should make it clear how many records are selected and which bulk actions are available.
+
+> Refer to the provided screenshots for the expected toolabr in listview, also in the screenshot we have search, filters, export, import button on the right side of the table header.
+
+### 2.7 No Actions Column
+
+**Do not add an `Actions` column** to the table.
+
+Record-level actions should instead be handled through the record detail/edit experience.
+
+---
+
+# 3. Record Detail & Edit Experience
+
+## 3.1 Opening a Record
+
+When a user clicks a record/row:
+
+* Open the selected record in the record detail view.
+* The record should open within the **active section of the Section Rotator**.
+* Do not introduce a separate popup/modal for the record.
+
+### Toolbar
+
+The record toolbar should include:
+
+* **Edit** button — only when the record is not approved.
+
+## 3.2 Edit Mode
+
+When the user enters edit mode, the toolbar should provide:
+
+* **Save**
+* **Cancel**
+* Current `record_status`
+* **Approve** button when the record is in `Draft`
+* A control to change the record status where applicable.
+
+The status control can be implemented as a dropdown or button-based control, depending on the existing UI patterns.
+
+### Status Behavior
+
+At minimum:
+
+* `Draft`
+
+  * Show **Submit**
+  * Allow the appropriate status changes
+
+* `Submitted`
+
+  * Show **Approve**
+  * Allow the appropriate status changes
+
+* `Approved`
+
+  * Do not show the **Edit** button, 
+  * Approved records Can only be Cancelled, Only Cancelled record can be Deleted
+  * Approved Record should be treated as read-only.
+
+The existing `record_status` value should always be visible in the record toolbar/detail context.
+Note: the Module can have its own workflow (this is default workflow behaviour)
+---
+
+# 4. New/Edit Views in Modules
+
+## 4.1 Current Behavior
+
+Modules such as Todo currently open their **New/Edit forms in a popup/modal**.
+
+## 4.2 Required Update
+
+New and Edit forms should **not be displayed as popups**.
+
+Instead, they should become a complete view within the **Section Rotator**.
+
+### Expected Flow
+
+#### New Record
+
+1. User clicks **New**.
+2. The current content of the active Section Rotator section is replaced by the New Record form.
+3. The form occupies the complete active section.
+4. User completes the form and clicks **Save** or **Cancel**.
+5. After Save or Cancel, return to the original content/view.
+
+#### Edit Record
+
+1. User opens a record.
+2. User clicks **Edit**.
+3. The active Section Rotator section switches to the Edit form.
+4. The user can **Save** or **Cancel**.
+5. After Save or Cancel, return to the previous/original content.
+
+### Important
+
+The Section Rotator should behave like a view stack/navigation state:
+
+```text
+Original View
+    ↓
+New/Edit View
+    ↓
+Save / Cancel
+    ↓
+Return to Original View
+```
+
+The implementation should preserve the user's previous context where possible, such as:
+
+* Current module
+* Current view mode
+* Search/filter state
+* Selected record context
+* Table/card view
+
+---
+
+# 5. Bug Fix: `data-theme` Hydration Warning
+
+## Current Issue
+
+When reloading the homepage, the following warning appears:
+
+```text
+Warning: Extra attributes from the server: data-theme
+Error Component Stack
+    at html (<anonymous>)
+    at RootLayout [Server] (<anonymous>)
+    at RedirectErrorBoundary (redirect-boundary.js:74:9)
+    at RedirectBoundary (redirect-boundary.js:82:11)
+    at NotFoundErrorBoundary (not-found-boundary.js:76:11)
+    at NotFoundBoundary (not-found-boundary.js:84:11)
+    at DevRootNotFoundBoundary (dev-root-not-found-boundary.js:33:11)
+    at ReactDevOverlay (react-dev-overlay.js:15:9)
+    at HotReload (hot-reloader-client.js:321:11)
+    at Router (app-router.js:207:11)
+    at ErrorBoundaryHandler (error-boundary.js:113:9)
+    at ErrorBoundary (error-boundary.js:160:11)
+    at AppRouter (app-router.js:585:13)
+    at ServerRoot (app-index.js:112:27)
+    at Root (app-index.js:117:11)
+```
+
+## Required Fix
+
+Investigate and resolve the hydration mismatch involving the `data-theme` attribute on the `<html>` element.
+
+The fix should ensure that:
+
+* The server-rendered `<html>` attributes match the initial client-rendered attributes.
+* `data-theme` is not added/removed differently between server and client during hydration.
+* The warning no longer appears after a full page reload.
+* Theme initialization remains functional.
+* The solution does not introduce a flash of the incorrect theme during page load.
+
+---
+
+# Acceptance Criteria
+
+## Apps
+
+* [ ] Apps are displayed as a responsive card grid.
+* [ ] Cards use the intended glassmorphism visual style.
+* [ ] Every card displays an icon, title, and description.
+* [ ] Clicking a card opens the corresponding app.
+* [ ] Search is positioned in the top-right.
+* [ ] Search correctly filters apps.
+* [ ] Empty search results display a clear "No apps found" state.
+
+## Table
+
+* [ ] Table supports column sorting.
+* [ ] Sorting respects the underlying data type.
+* [ ] Column filtering is supported.
+* [ ] Filter operators are dynamically determined by data type.
+* [ ] CSV export works.
+* [ ] XLSX export works.
+* [ ] Users can switch between table and card views.
+* [ ] Rows can be selected with checkboxes.
+* [ ] Bulk delete works on selected rows.
+* [ ] No Actions column is added.
+
+## Record Detail/Edit
+
+* [ ] Clicking a record opens its detail view in the active Section Rotator section.
+* [ ] Edit is only available when the record is not approved.
+* [ ] Edit mode provides Save and Cancel.
+* [ ] Current `record_status` is visible.
+* [ ] Draft records provide an Approve action.
+* [ ] Status can be changed through the appropriate control.
+
+## New/Edit Forms
+
+* [ ] New forms no longer open in popups.
+* [ ] Edit forms no longer open in popups.
+* [ ] New/Edit forms occupy the active Section Rotator section.
+* [ ] Save returns the user to the previous/original view.
+* [ ] Cancel returns the user to the previous/original view.
+* [ ] Relevant table/card/search/filter context is preserved where possible.
+
+## Bug
+
+* [ ] The `data-theme` hydration warning is resolved.
+* [ ] No hydration mismatch occurs after a full homepage reload.
+* [ ] Theme behavior continues to work correctly.

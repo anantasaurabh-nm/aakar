@@ -1,0 +1,74 @@
+DoersOS Core Data Sources Reference Summary
+=============================================
+
+1. Dynamic Schema-Driven Data Sources (Available for ANY Module Entity)
+-----------------------------------------------------------------------
+For any module and entity (e.g. hello-notes.note, hello-views.note, employees.employee):
+
+A. Table / List Data Source: "<module>.<entity>"
+   - Format: "<module_id>.<entity_key>"
+   - Component: DataTable (type: "table")
+   - Endpoint: GET /api/data/:module/:entity
+   - Parameters: page, pageSize, search, sortBy, sortDir, status, recordDate, filters (JSON)
+   - Features: Automatic pagination, sorting, search, column filters, and batch enrichment of reference display labels (__label)
+
+B. Dashboard / Insights Data Source: "<module>.<entity>.insights"
+   - Format: "<module_id>.<entity_key>.insights"
+   - Component: Dashboard (type: "dashboard")
+   - Endpoint: GET /api/data/:module/:entity/insights
+   - Parameters: recordDate (today, this_week, this_month, last_30_days, all_time)
+   - Features: Summary metric cards (Total, Completed, Pending) and breakdown charts
+
+C. Form Data Source: "<module>.<entity>.form"
+   - Format: "<module_id>.<entity_key>.form"
+   - Component: DynamicForm / RecordView
+   - Endpoint: GET /api/ui/views/:module/:entity/form?id=:recordId
+   - Features: Returns schema fields, validation rules, dynamic reference options, and pre-populated record data
+
+2. Action Submit Targets (Auto-Generated per Entity)
+----------------------------------------------------
+- "<module>.<entity>.create"   -> POST /api/actions/:module/:entity
+- "<module>.<entity>.update"   -> PATCH /api/actions/:module/:entity/:id
+- "<module>.<entity>.delete"   -> DELETE /api/actions/:module/:entity/:id
+- "<module>.<entity>.submit"   -> PATCH /api/actions/:module/:entity/:id/transition {"to": "submitted"}
+- "<module>.<entity>.approve"  -> PATCH /api/actions/:module/:entity/:id/transition {"to": "approved"}
+- "<module>.<entity>.cancel"   -> PATCH /api/actions/:module/:entity/:id/transition {"to": "cancelled"}
+- "<module>.<entity>.reopen"   -> PATCH /api/actions/:module/:entity/:id/transition {"to": "draft"}
+* Cache Invalidation: All entity action targets automatically invalidate both "<module>.<entity>" and "<module>.<entity>.insights".
+
+3. Platform Built-in Data Sources
+---------------------------------
+- "home.dashboard"             -> GET /api/data/home/dashboard (Home landing page metrics)
+- "apps"                       -> GET /api/data/apps (Installed & enabled apps for user role)
+- "admin-tools"                -> GET /api/data/admin-tools (Admin consoles list)
+- "modules"                    -> GET /api/data/modules (Discovered, installed, active modules)
+- "users" / "user-management.user" -> GET /api/data/users (Tenant users list)
+- "users.insights"             -> GET /api/data/users-insights (User statistics cards)
+- "roles" / "user-roles.role"  -> GET /api/data/roles (Roles and permission definitions)
+- "roles.insights"             -> GET /api/data/roles-insights (Role distribution cards)
+
+4. Module Management Action Targets
+-----------------------------------
+- "module.discover"            -> POST /api/actions/modules/discover
+- "module.install"             -> POST /api/actions/modules/:id/install
+- "module.toggle"              -> POST /api/actions/modules/:id/toggle
+- "module.uninstall"           -> POST /api/actions/modules/:id/uninstall
+
+5. How Module Developers Create Custom Data Sources (Outside Core)
+-------------------------------------------------------------------
+A. Method 1: Pure Declarative Entity (Zero Code)
+   - Define entity in modules/<mod>/schema.json
+   - Automatically gets "<mod>.<entity>" (table) and "<mod>.<entity>.insights" (dashboard)
+
+B. Method 2: Parameterized Views in SDUI (Zero Code)
+   - Define section in modules/<mod>/ui/views/home.json with data.params
+   - E.g. source: "<mod>.<entity>", params: { status: "pending", recordDate: "this_month" }
+   - DataTable transmits params to backend entity engine for customized filtered feeds
+
+C. Method 3: Custom Domain Capability (Level 3+ Code Modules)
+   - For custom logic, tax calculations, or external API calls (e.g. Trello)
+   - Define CapabilityDescriptor in modules/<mod>/capabilities/*.ts
+   - Register in CapabilityRegistry under "<mod>.<operation>"
+   - Directly usable as SDUI data source ("source": "<mod>.<operation>") and discovered by AI Orchestrator
+   - Security pipeline (Auth -> Tenant -> RBAC -> Audit) strictly enforced by Core
+

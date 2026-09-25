@@ -13,6 +13,7 @@ export * from './api/module';
 export * from './api/entity-schema';
 export * from './api/workflow';
 export * from './api/connectors';
+export * from './api/notification';
 
 export * from './ai/models';
 export * from './ai/capability';

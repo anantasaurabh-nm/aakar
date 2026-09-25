@@ -1,0 +1,11 @@
+Summary
+
+Rebuilt the module system around the two new PRDs, deleting the entire previous extension-package/restart mechanism:
+
+Removed: packages/backend-core, public_html/extensions/, the restart supervisor, .enabled-extensions.json, activation/main/exportName DB columns, system.restart, per-module Agent/Skill AI registration.
+
+Added — a generic schema-driven entity engine (backend/src/core/entity-engine/): a module can now be just module.json + schema.json, and Core auto-generates the Postgres table (idempotent DDL, no restart ever needed), REST CRUD API, SDUI table/form/dashboard, and AI capabilities. Todo is now proof of this — public_html/modules/todo/ contains only those two JSON files, zero backend code, replacing the ~300 lines of hand-written controller/service/AI-skill code from before.
+
+Added — a flat Capability Registry replacing the Agent+Skills model: capabilities are named <module>.<entity>.<operation> with machine-readable metadata, discovered by the AI orchestrator (LLM or rule-based fallback) and executed with authorization checked centrally, exactly matching Amendment 01's architecture.
+
+Verified end-to-end after rebuilding: RBAC (403 for unauthorized, generated permissions per role), module disable/enable (immediate, no restart), AI chat capability composition (natural language → search → resolve → transition, e.g. "mark X as done"), origin-tracking trust boundary (unit-tested), and the full UI (dashboard charts, table, create/edit/complete/delete) rendering correctly through components that needed no changes — only three frontend registry files needed their URLs repointed. All 22 tests pass across the three workspaces, and I dropped/recreated the relevant DB tables as you authorized.

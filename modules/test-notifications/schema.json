@@ -1,0 +1,60 @@
+{
+  "entities": {
+    "alert": {
+      "label": "Notification Alert",
+      "displayField": "title",
+      "fields": {
+        "title": {
+          "type": "string",
+          "label": "Alert Title",
+          "required": true,
+          "sortable": true,
+          "searchable": true
+        },
+        "description": {
+          "type": "text",
+          "label": "Message / Description",
+          "searchable": true
+        },
+        "assigned_to": {
+          "type": "reference",
+          "entity": "core.user",
+          "displayField": "username",
+          "label": "In-App / Push Recipient"
+        },
+        "email": {
+          "type": "string",
+          "label": "Email Recipient",
+          "searchable": true
+        },
+        "phone": {
+          "type": "string",
+          "label": "Phone Number (WhatsApp / SMS)",
+          "searchable": true
+        },
+        "priority": {
+          "type": "select",
+          "label": "Priority",
+          "options": ["LOW", "MEDIUM", "HIGH", "URGENT"],
+          "default": "MEDIUM",
+          "required": true,
+          "sortable": true
+        },
+        "type": {
+          "type": "select",
+          "label": "Notification Type",
+          "options": ["informational", "action_required", "warning", "success", "error"],
+          "default": "informational",
+          "required": true,
+          "sortable": true
+        },
+        "status": {
+          "type": "string",
+          "label": "Status",
+          "default": "active",
+          "internal": true
+        }
+      }
+    }
+  }
+}

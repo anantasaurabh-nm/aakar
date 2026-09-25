@@ -1,6 +1,7 @@
 import {
   Activity,
   AppWindow,
+  Bell,
   BookOpen,
   Bot,
   Boxes,
@@ -14,10 +15,15 @@ import {
   Layout,
   LayoutGrid,
   Layers,
+  Mail,
+  MessageSquare,
+  Send,
   Settings,
   ShieldCheck,
+  Smartphone,
   Sparkles,
   Users,
+  Zap,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -54,6 +60,20 @@ const REGISTRY: Record<string, LucideIcon> = {
   activity: Activity,
   'external-link': ExternalLink,
   'book-open': BookOpen,
+  bell: Bell,
+  notifications: Bell,
+  'test-notifications': Bell,
+  mail: Mail,
+  email: Mail,
+  'message-square': MessageSquare,
+  'message-circle': MessageSquare,
+  whatsapp: MessageSquare,
+  smartphone: Smartphone,
+  sms: Smartphone,
+  push: Smartphone,
+  send: Send,
+  all: Send,
+  zap: Zap,
 };
 
 export function resolveIcon(key?: string): LucideIcon {

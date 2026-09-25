@@ -156,6 +156,35 @@ const REGISTRY: Record<string, SubmitTarget> = {
       return apiClient.post('actions/connectors/test', values);
     },
   },
+
+  'notifications.channel.save': {
+    invalidates: ['notifications', 'notifications.list', 'notifications.channel-configs', 'ui'],
+    execute: (values) => apiClient.post('actions/notifications/channel-config', values),
+  },
+  'notifications.mark-all-read': {
+    invalidates: ['notifications', 'notifications.list', 'notifications.unread-count'],
+    execute: () => apiClient.post('actions/notifications/mark-all-read'),
+  },
+  'notifications.test': {
+    invalidates: ['notifications.channel-configs'],
+    execute: (values) => apiClient.post('actions/notifications/test', values),
+  },
+  'notifications.send': {
+    invalidates: ['notifications', 'notifications.list', 'notifications.unread-count'],
+    execute: (values) => apiClient.post('actions/notifications/send', values),
+  },
+  'notifications.test-sample': {
+    invalidates: ['notifications', 'notifications.list', 'notifications.unread-count'],
+    execute: () => apiClient.post('actions/notifications/test-sample'),
+  },
+  'notification.dispatch': {
+    invalidates: ['notifications', 'notifications.list', 'notifications.unread-count'],
+    execute: (values) => apiClient.post('actions/notifications/dispatch', values),
+  },
+  'notifications.dispatch': {
+    invalidates: ['notifications', 'notifications.list', 'notifications.unread-count'],
+    execute: (values) => apiClient.post('actions/notifications/dispatch', values),
+  },
 };
 
 export class UnknownActionTargetError extends Error {

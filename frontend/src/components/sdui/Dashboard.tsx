@@ -56,7 +56,7 @@ export function Dashboard({ section }: { section: DashboardSection }) {
           if (action.type === 'refresh') queryClient.invalidateQueries({ queryKey: ['ds', section.data?.source] });
         }}
       />
-      <div style={{ padding: '4px 8px', overflowY: 'auto' }}>
+      <div style={{ flex: 1, minHeight: 0, padding: '4px 8px', overflowY: 'auto' }}>
         {hasDataSource && isLoading && <SkeletonCards />}
         {hasDataSource && isError && <ErrorState />}
         {(!hasDataSource || (!isLoading && !isError)) && (

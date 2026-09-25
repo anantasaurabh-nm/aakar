@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CryptoService } from '../crypto/crypto.service';
 import { ProviderRegistry } from './providers/provider.registry';
@@ -10,6 +10,8 @@ import type {
   TestConnectionResult,
   ConnectionAuthType,
   ConnectionStatus,
+  ConnectionScope,
+  UserConnectorCatalogItem,
 } from '@erp/shared-contracts';
 
 export interface DecryptedConnection {
@@ -125,6 +127,8 @@ export class ConnectorsService {
       id: r.id,
       provider: r.provider,
       name: r.name,
+      description: r.description,
+      scope: (r.scope as ConnectionScope) || 'user',
       authType: r.authType as ConnectionAuthType,
       baseUrl: r.baseUrl,
       maskedPreview: r.maskedPreview,
@@ -152,6 +156,8 @@ export class ConnectorsService {
       id: r.id,
       provider: r.provider,
       name: r.name,
+      description: r.description,
+      scope: (r.scope as ConnectionScope) || 'user',
       authType: r.authType as ConnectionAuthType,
       baseUrl: r.baseUrl,
       maskedPreview: r.maskedPreview,
@@ -246,15 +252,24 @@ export class ConnectorsService {
       }
     }
 
-    const baseUrl = input.baseUrl?.trim() || provider.defaultBaseUrl || null;
+    const baseUrl =
+      input.baseUrl?.trim() ||
+      (typeof rawCredentials.serverUrl === 'string' && rawCredentials.serverUrl.trim()) ||
+      provider.defaultBaseUrl ||
+      null;
     const encryptedCredentials = this.crypto.encrypt(JSON.stringify(rawCredentials));
     const maskedPreview = this.generateMaskedPreview(rawCredentials, provider.id);
+
+    const scope = ((input as any).scope as ConnectionScope) || 'user';
+    const description = (input as any).description ? String((input as any).description).trim() : null;
 
     const r = await this.prisma.coreConnection.create({
       data: {
         tenantId,
         provider: provider.id,
         name: input.name.trim(),
+        description,
+        scope,
         authType: (input.authType as any) || 'api_key',
         baseUrl,
         encryptedCredentials,
@@ -289,7 +304,15 @@ export class ConnectorsService {
     const data: Record<string, unknown> = {};
 
     if (input.name !== undefined) data.name = input.name.trim();
-    if (input.baseUrl !== undefined) data.baseUrl = input.baseUrl ? input.baseUrl.trim() : null;
+    if ((input as any).description !== undefined) {
+      data.description = (input as any).description ? String((input as any).description).trim() : null;
+    }
+    if ((input as any).scope !== undefined) {
+      data.scope = (input as any).scope;
+    }
+    if (input.baseUrl !== undefined) {
+      data.baseUrl = input.baseUrl ? input.baseUrl.trim() : null;
+    }
     if (input.status !== undefined) data.status = input.status;
     if (input.metadata !== undefined) data.metadata = input.metadata;
 
@@ -318,6 +341,9 @@ export class ConnectorsService {
 
       data.encryptedCredentials = this.crypto.encrypt(JSON.stringify(mergedCredentials));
       data.maskedPreview = this.generateMaskedPreview(mergedCredentials, existing.provider);
+      if (input.baseUrl === undefined && typeof mergedCredentials.serverUrl === 'string' && mergedCredentials.serverUrl.trim()) {
+        data.baseUrl = mergedCredentials.serverUrl.trim();
+      }
     }
 
     await this.prisma.coreConnection.update({
@@ -358,7 +384,11 @@ export class ConnectorsService {
       };
     }
 
-    const effectiveBaseUrl = conn.baseUrl || provider.defaultBaseUrl || '';
+    const effectiveBaseUrl =
+      (conn.credentials?.serverUrl as string) ||
+      conn.baseUrl ||
+      provider.defaultBaseUrl ||
+      '';
     const result = await provider.test(conn.credentials, effectiveBaseUrl);
 
     const statusLabel = result.success
@@ -423,6 +453,7 @@ export class ConnectorsService {
     }
 
     const effectiveBaseUrl =
+      (mergedCreds.serverUrl as string) ||
       (payload[`${provider.id}_baseUrl`] as string) ||
       (payload.baseUrl as string) ||
       existingBaseUrl ||
@@ -468,16 +499,54 @@ export class ConnectorsService {
     tenantId: string,
     providerOrId: string,
     defaultOptions?: HttpClientOptions,
+    userId?: string,
   ): Promise<ConnectorHttpClient> {
-    const conn = await this.getDecryptedCredentials(tenantId, providerOrId);
-    const provider = this.providerRegistry.get(conn.provider);
-    const baseUrl = (conn.baseUrl || provider?.defaultBaseUrl || '').replace(/\/+$/, '');
+    let connCredentials: Record<string, unknown> = {};
+    let targetBaseUrl = '';
+    let providerName = '';
 
-    // Stamp lastUsedAt asynchronously in background
-    this.prisma.coreConnection.update({
-      where: { id: conn.id },
-      data: { lastUsedAt: new Date() },
-    }).catch(() => {});
+    // If a userId is supplied, attempt to resolve user-delegated credentials first
+    if (userId) {
+      const catalog = await this.prisma.coreConnection.findFirst({
+        where: {
+          tenantId,
+          OR: [{ id: providerOrId }, { provider: providerOrId }],
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (catalog) {
+        providerName = catalog.provider;
+        const userConn = await this.prisma.userConnection.findFirst({
+          where: { tenantId, userId, connectionId: catalog.id },
+        });
+
+        if (userConn && userConn.status === 'active') {
+          try {
+            const userCreds = JSON.parse(this.crypto.decrypt(userConn.encryptedCredentials));
+            const catalogCreds = JSON.parse(this.crypto.decrypt(catalog.encryptedCredentials));
+            connCredentials = { ...catalogCreds, ...userCreds };
+            targetBaseUrl = (connCredentials.serverUrl as string) || catalog.baseUrl || '';
+          } catch {
+            // fallback to catalog
+          }
+        } else if (catalog.scope === 'user') {
+          throw new ForbiddenException(
+            `You have not connected your personal account to "${catalog.name}". Please open Settings → Connectors to link your account.`,
+          );
+        }
+      }
+    }
+
+    if (!providerName || Object.keys(connCredentials).length === 0) {
+      const conn = await this.getDecryptedCredentials(tenantId, providerOrId);
+      providerName = conn.provider;
+      connCredentials = conn.credentials;
+      targetBaseUrl = (conn.credentials?.serverUrl as string) || conn.baseUrl || '';
+    }
+
+    const provider = this.providerRegistry.get(providerName);
+    const baseUrl = (targetBaseUrl || provider?.defaultBaseUrl || '').replace(/\/+$/, '');
 
     const request = async <T = unknown>(
       method: string,
@@ -500,9 +569,8 @@ export class ConnectorsService {
         headers['Content-Type'] = 'application/json';
       }
 
-      // Delegate request decoration (headers, query params, signatures) to provider
       if (provider) {
-        provider.decorateRequest(conn.credentials, { url, headers, method });
+        provider.decorateRequest(connCredentials, { url, headers, method });
       }
 
       const controller = new AbortController();
@@ -519,7 +587,7 @@ export class ConnectorsService {
         if (!response.ok) {
           const errBody = await response.text().catch(() => '');
           throw new Error(
-            `Connector request failed [${conn.provider}] ${method} ${path}: HTTP ${response.status} ${response.statusText} ${errBody ? `— ${errBody}` : ''}`,
+            `Connector request failed [${providerName}] ${method} ${path}: HTTP ${response.status} ${response.statusText} ${errBody ? `— ${errBody}` : ''}`,
           );
         }
 
@@ -530,7 +598,7 @@ export class ConnectorsService {
         return (await response.text()) as unknown as T;
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {
-          throw new Error(`Connector request timed out after ${timeoutMs}ms: [${conn.provider}] ${method} ${path}`);
+          throw new Error(`Connector request timed out after ${timeoutMs}ms: [${providerName}] ${method} ${path}`);
         }
         throw err;
       } finally {
@@ -545,5 +613,207 @@ export class ConnectorsService {
       patch: <T = unknown>(path: string, body?: unknown, options?: HttpClientOptions) => request<T>('PATCH', path, body, options),
       delete: <T = unknown>(path: string, options?: HttpClientOptions) => request<T>('DELETE', path, undefined, options),
     };
+  }
+
+  /**
+   * Returns all connectors available in the catalog for a user, indicating whether the
+   * user has connected their personal account or if it is workspace-managed (Claude.ai style).
+   */
+  async listUserConnectors(tenantId: string, userId: string): Promise<UserConnectorCatalogItem[]> {
+    const catalog = await this.prisma.coreConnection.findMany({
+      where: { tenantId, status: 'active' },
+      orderBy: { name: 'asc' },
+    });
+
+    const userConns = await this.prisma.userConnection.findMany({
+      where: { tenantId, userId },
+    });
+
+    const userConnMap = new Map(userConns.map((u) => [u.connectionId, u]));
+
+    return catalog.map((cat) => {
+      const provider = this.providerRegistry.get(cat.provider);
+      const userConn = userConnMap.get(cat.id);
+      const isTenantScope = cat.scope === 'tenant';
+      const isConnected = isTenantScope ? true : Boolean(userConn && userConn.status === 'active');
+
+      return {
+        id: cat.id,
+        provider: cat.provider,
+        name: cat.name,
+        description: cat.description || provider?.description || null,
+        scope: (cat.scope as ConnectionScope) || 'user',
+        authType: cat.authType as ConnectionAuthType,
+        baseUrl: cat.baseUrl,
+        icon: provider?.icon || 'cpu',
+        fields: provider?.fields || [],
+        isConnected,
+        userConnectionId: userConn?.id || null,
+        maskedPreview: isTenantScope ? cat.maskedPreview : (userConn?.maskedPreview || null),
+        status: isTenantScope ? (cat.status as ConnectionStatus) : (userConn?.status as ConnectionStatus || 'inactive'),
+        lastTestedStatus: isTenantScope ? cat.lastTestedStatus : (userConn?.lastTestedStatus || null),
+        lastTestedAt: isTenantScope ? cat.lastTestedAt?.toISOString() : (userConn?.lastTestedAt?.toISOString() || null),
+      };
+    });
+  }
+
+  /**
+   * Connects a user's personal credentials to a catalog connector.
+   * Performs a live diagnostic test with the user's credentials before encrypting and storing.
+   */
+  async connectUser(
+    tenantId: string,
+    userId: string,
+    connectionId: string,
+    credentials: Record<string, unknown>,
+  ): Promise<UserConnectorCatalogItem> {
+    const catalog = await this.prisma.coreConnection.findFirst({
+      where: { id: connectionId, tenantId, status: 'active' },
+    });
+
+    if (!catalog) {
+      throw new NotFoundException(`Connector not found or is inactive: ${connectionId}`);
+    }
+
+    const provider = this.providerRegistry.get(catalog.provider);
+    if (!provider) {
+      throw new BadRequestException(`Provider "${catalog.provider}" is not recognized.`);
+    }
+
+    // Merge in catalog baseUrl / transport if not specified in user credentials
+    let catalogCreds: Record<string, unknown> = {};
+    try {
+      catalogCreds = JSON.parse(this.crypto.decrypt(catalog.encryptedCredentials));
+    } catch {
+      catalogCreds = {};
+    }
+
+    const mergedCreds = { ...catalogCreds, ...credentials };
+    const effectiveBaseUrl = catalog.baseUrl || String(mergedCreds.serverUrl || '').trim();
+
+    // Verify connection credentials live before saving
+    const testResult = await provider.test(mergedCreds, effectiveBaseUrl);
+    if (!testResult.success) {
+      throw new BadRequestException(`Connection verification failed: ${testResult.message}`);
+    }
+
+    const statusLabel = `ok (${testResult.latencyMs ?? 0}ms)`;
+    const encryptedCredentials = this.crypto.encrypt(JSON.stringify(credentials));
+    const maskedPreview = this.generateMaskedPreview(credentials, catalog.provider);
+
+    const userConn = await this.prisma.userConnection.upsert({
+      where: {
+        tenantId_userId_connectionId: {
+          tenantId,
+          userId,
+          connectionId,
+        },
+      },
+      create: {
+        tenantId,
+        userId,
+        connectionId,
+        encryptedCredentials,
+        maskedPreview,
+        status: 'active',
+        lastTestedAt: new Date(),
+        lastTestedStatus: statusLabel,
+      },
+      update: {
+        encryptedCredentials,
+        maskedPreview,
+        status: 'active',
+        lastTestedAt: new Date(),
+        lastTestedStatus: statusLabel,
+      },
+    });
+
+    this.logger.log(`User ${userId} connected to connector ${catalog.name} (${catalog.id})`);
+
+    return {
+      id: catalog.id,
+      provider: catalog.provider,
+      name: catalog.name,
+      description: catalog.description || provider.description || null,
+      scope: (catalog.scope as ConnectionScope) || 'user',
+      authType: catalog.authType as ConnectionAuthType,
+      baseUrl: catalog.baseUrl,
+      icon: provider.icon || 'cpu',
+      fields: provider.fields,
+      isConnected: true,
+      userConnectionId: userConn.id,
+      maskedPreview,
+      status: 'active',
+      lastTestedStatus: statusLabel,
+      lastTestedAt: userConn.lastTestedAt?.toISOString(),
+    };
+  }
+
+  /**
+   * Disconnects a user's personal credentials from a connector.
+   */
+  async disconnectUser(tenantId: string, userId: string, connectionId: string): Promise<void> {
+    await this.prisma.userConnection.deleteMany({
+      where: { tenantId, userId, connectionId },
+    });
+    this.logger.log(`User ${userId} disconnected from connector ${connectionId}`);
+  }
+
+  /**
+   * Re-tests a user's personal connection on demand.
+   */
+  async testUserConnection(
+    tenantId: string,
+    userId: string,
+    connectionId: string,
+  ): Promise<TestConnectionResult> {
+    const catalog = await this.prisma.coreConnection.findFirst({
+      where: { id: connectionId, tenantId, status: 'active' },
+    });
+
+    if (!catalog) {
+      throw new NotFoundException(`Connector not found: ${connectionId}`);
+    }
+
+    const userConn = await this.prisma.userConnection.findFirst({
+      where: { tenantId, userId, connectionId },
+    });
+
+    if (!userConn) {
+      throw new NotFoundException(`No personal connection found for connector "${catalog.name}".`);
+    }
+
+    const provider = this.providerRegistry.get(catalog.provider);
+    if (!provider) {
+      throw new BadRequestException(`Provider "${catalog.provider}" is not recognized.`);
+    }
+
+    let userCreds: Record<string, unknown> = {};
+    let catalogCreds: Record<string, unknown> = {};
+    try {
+      userCreds = JSON.parse(this.crypto.decrypt(userConn.encryptedCredentials));
+      catalogCreds = JSON.parse(this.crypto.decrypt(catalog.encryptedCredentials));
+    } catch {
+      return { success: false, message: 'Failed to decrypt credentials.' };
+    }
+
+    const mergedCreds = { ...catalogCreds, ...userCreds };
+    const effectiveBaseUrl = catalog.baseUrl || String(mergedCreds.serverUrl || '').trim();
+    const result = await provider.test(mergedCreds, effectiveBaseUrl);
+
+    const statusLabel = result.success
+      ? `ok (${result.latencyMs ?? 0}ms)`
+      : `Failed: ${result.message}`;
+
+    await this.prisma.userConnection.update({
+      where: { id: userConn.id },
+      data: {
+        lastTestedAt: new Date(),
+        lastTestedStatus: statusLabel,
+        status: result.success ? 'active' : 'error',
+      },
+    });
+
+    return result;
   }
 }

@@ -1,0 +1,11 @@
+{
+  "id": "notifications",
+  "name": "Notifications & Alerts",
+  "version": "1.0.0",
+  "description": "Multi-channel notification routing, push subscriptions, and provider setup",
+  "type": "native",
+  "surfaces": ["admin"],
+  "dependencies": {
+    "core": ">=1.0.0"
+  }
+}

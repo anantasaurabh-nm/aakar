@@ -16,6 +16,11 @@ import {
   FileDown,
   Zap,
   Loader2,
+  Bell,
+  Mail,
+  MessageSquare,
+  Smartphone,
+  Send,
 } from 'lucide-react';
 import type { FormConfig, TableSection, SDUIFormField } from '@erp/shared-contracts';
 import { evalFieldCondition } from '@erp/shared-contracts';
@@ -28,6 +33,7 @@ import { RolePermissionMatrix, type PermissionModuleGroup } from './RolePermissi
 import { Badge } from '@/components/ui/Badge';
 import { useUiStore } from '@/lib/ui-store';
 import type { ComputedRecordWorkflow } from '@erp/shared-contracts';
+import { HorizontalScroller } from '@/components/ui/HorizontalScroller';
 
 const DataTable = dynamic(() => import('./DataTable').then((m) => m.DataTable), { ssr: false });
 
@@ -42,7 +48,8 @@ interface FormSectionResponse {
     id: string;
     type?: string;
     label: string;
-    action?: { type: string; target?: string };
+    icon?: string;
+    action?: { type: string; target?: string; params?: Record<string, unknown> };
   }>;
 }
 
@@ -150,6 +157,99 @@ export function RecordView({
       pushToast(err instanceof Error ? err.message : 'Connection test request failed', 'error');
     } finally {
       setIsTesting(false);
+    }
+  };
+
+  const [activeActionId, setActiveActionId] = useState<string | null>(null);
+
+  const renderActionIcon = (icon?: string) => {
+    switch (icon) {
+      case 'bell':
+        return <Bell size={14} style={{ color: 'var(--accent-indigo)' }} />;
+      case 'mail':
+      case 'email':
+        return <Mail size={14} style={{ color: '#3b82f6' }} />;
+      case 'message-circle':
+      case 'message-square':
+      case 'whatsapp':
+        return <MessageSquare size={14} style={{ color: '#10b981' }} />;
+      case 'smartphone':
+      case 'sms':
+      case 'push':
+        return <Smartphone size={14} style={{ color: '#8b5cf6' }} />;
+      case 'send':
+      case 'all':
+        return <Send size={14} style={{ color: '#ec4899' }} />;
+      default:
+        return <Zap size={14} style={{ color: 'var(--accent-indigo)' }} />;
+    }
+  };
+
+  const handleCustomAction = async (item: NonNullable<FormSectionResponse['toolbar']>[number]) => {
+    if (!item.action || !recordId) return;
+    setActiveActionId(item.id);
+    const label = item.label || item.id;
+    pushToast(`Triggering ${label}…`);
+    try {
+      const targetName = item.action.target || 'notification.dispatch';
+      const target = getSubmitTarget(targetName);
+      const payload: Record<string, unknown> = {
+        id: recordId,
+        module,
+        entity,
+        ...(data?.record ?? {}),
+        ...(item.action && typeof item.action === 'object' && 'params' in item.action
+          ? (item.action as any).params
+          : {}),
+      };
+      const res = await target.execute(payload);
+      const resObj = (res ?? {}) as Record<string, unknown>;
+      const msg = String(resObj.message || `${label} executed successfully`);
+      pushToast(`✓ ${msg}`, 'success');
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: formQueryKey });
+    } catch (err) {
+      pushToast(err instanceof Error ? err.message : `Failed to execute ${label}`, 'error');
+    } finally {
+      setActiveActionId(null);
+    }
+  };
+
+  const [isNotifying, setIsNotifying] = useState(false);
+
+  const handleSendTestNotification = async () => {
+    if (!recordId) return;
+    setIsNotifying(true);
+    pushToast(`Sending test notification for ${recordId}…`);
+    try {
+      const recordTitle = String(data?.record?.title || data?.record?.name || recordId);
+      const target = getSubmitTarget('notifications.send');
+      const targetUrl = `/app/${module}?record=${recordId}`;
+      await target.execute({
+        title: `Task Alert: ${recordTitle}`,
+        body: `Notification alert for ${module} record ${recordId}. Tap to view task details.`,
+        priority: 'high',
+        type: 'action_required',
+        sourceModule: module,
+        sourceEntity: entity,
+        sourceId: recordId,
+        link: targetUrl,
+        actions: [
+          {
+            id: 'open-record',
+            label: `Open ${recordTitle}`,
+            action: 'open_record',
+            url: targetUrl,
+          },
+        ],
+        channels: ['in_app', 'push'],
+      });
+      pushToast(`Notification sent for ${recordTitle}! Check notification bell.`, 'success');
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    } catch (err) {
+      pushToast(err instanceof Error ? err.message : 'Failed to dispatch notification', 'error');
+    } finally {
+      setIsNotifying(false);
     }
   };
 
@@ -289,15 +389,15 @@ export function RecordView({
         style={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
+          gap: 12,
           padding: '4px 12px 0px 12px',
           borderBottom: '0px solid var(--border)',
           background: 'transparent',
-          position: 'relative',
+          minWidth: 0,
         }}
       >
-        {/* Left: Back arrow icon & Edit/Save button */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {/* Left: Back arrow icon & Edit/Save button (fixed) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
           {/* Back: Only arrow icon */}
           <button
             key="back-btn"
@@ -385,7 +485,10 @@ export function RecordView({
               </button>
             )
           )}
+        </div>
 
+        {/* Center: Core Horizontal Scroller for Action Buttons */}
+        <HorizontalScroller gap={8} style={{ flex: 1, minWidth: 0 }}>
           {/* Test Connection Button (for connectors module or whenever form provides a test action) */}
           {(module === 'connectors' || data?.toolbar?.some((t) => t.id === 'test' || t.id === 'test-connection')) && (
             <button
@@ -406,6 +509,8 @@ export function RecordView({
                 fontSize: 13,
                 cursor: isTesting ? 'not-allowed' : 'pointer',
                 transition: 'background-color 0.15s ease',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
               }}
               title="Test live connection probe with remote service"
             >
@@ -417,25 +522,106 @@ export function RecordView({
               <span>{isTesting ? 'Probing…' : 'Test Connection'}</span>
             </button>
           )}
-        </div>
 
-        {/* Center: Single Unified Collection for Record Navigation, Print & Export to PDF */}
-        {!isNew && !editing && (
-          <div
-            style={{
-              position: 'absolute',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 2,
-              padding: 3,
-              borderRadius: 12,
-              border: '1px solid var(--border)',
-              background: 'var(--surface-2)',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
-            }}
-          >
+          {/* Custom Toolbar Buttons defined in SDUI schema or custom view */}
+          {!isNew && !editing && data?.toolbar && data.toolbar.filter(t => t.id !== 'cancel' && t.id !== 'save' && t.id !== 'test' && t.id !== 'test-connection').length > 0 && (
+            data.toolbar
+              .filter(
+                (item) =>
+                  item.id !== 'cancel' &&
+                  item.id !== 'save' &&
+                  item.id !== 'test' &&
+                  item.id !== 'test-connection'
+              )
+              .map((item) => {
+                const isLoading = activeActionId === item.id;
+                return (
+                  <button
+                    key={`custom-toolbar-${item.id}`}
+                    type="button"
+                    disabled={isLoading}
+                    onClick={() => handleCustomAction(item)}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '7px 14px',
+                      borderRadius: 8,
+                      border: '1px solid var(--border)',
+                      background: isLoading ? 'var(--surface-3)' : 'var(--surface)',
+                      color: 'var(--text-primary)',
+                      fontWeight: 600,
+                      fontSize: 13,
+                      cursor: isLoading ? 'wait' : 'pointer',
+                      transition: 'background-color 0.15s ease',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
+                    }}
+                    title={item.label}
+                  >
+                    {isLoading ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      renderActionIcon(item.icon)
+                    )}
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })
+          )}
+
+          {/* Test Notification Button (fallback for modules without custom toolbar actions) */}
+          {!isNew && !editing && (!data?.toolbar || data.toolbar.filter(t => t.id !== 'cancel' && t.id !== 'save' && t.id !== 'test' && t.id !== 'test-connection').length === 0) && (
+            <button
+              key="test-notify-btn"
+              type="button"
+              disabled={isNotifying}
+              onClick={handleSendTestNotification}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '7px 14px',
+                borderRadius: 8,
+                border: '1px solid var(--border)',
+                background: isNotifying ? 'var(--surface-3)' : 'var(--surface)',
+                color: 'var(--text-primary)',
+                fontWeight: 600,
+                fontSize: 13,
+                cursor: isNotifying ? 'wait' : 'pointer',
+                transition: 'background-color 0.15s ease',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+              }}
+              title={`Trigger test notification referencing ${data?.record?.title || recordId}`}
+            >
+              {isNotifying ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Bell size={14} style={{ color: 'var(--accent-indigo)' }} />
+              )}
+              <span>{isNotifying ? 'Notifying…' : 'Notify'}</span>
+            </button>
+          )}
+        </HorizontalScroller>
+
+        {/* Right: Record Navigation, Print & PDF, Status badge & Transitions */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, marginLeft: 'auto' }}>
+          {/* Center Record Navigation, Print & Export to PDF */}
+          {!isNew && !editing && (
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 2,
+                padding: 3,
+                borderRadius: 12,
+                border: '1px solid var(--border)',
+                background: 'var(--surface-2)',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+              }}
+            >
             {/* Previous Record Button */}
             <button
               type="button"
@@ -597,9 +783,6 @@ export function RecordView({
             )}
           </div>
         )}
-
-        {/* Right: Status badge & Status Change Button with Dropdown */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {!isNew && status && <Badge tone={getStatusTone(status)}>{status.toUpperCase()}</Badge>}
 
           {!isNew && !editing && (

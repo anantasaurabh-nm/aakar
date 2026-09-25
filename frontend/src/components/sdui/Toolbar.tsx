@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Search, SlidersHorizontal, RefreshCw } from 'lucide-react';
 import type { SDUIAction, SDUIToolbarItem } from '@erp/shared-contracts';
+import { HorizontalScroller } from '@/components/ui/HorizontalScroller';
 
 export interface ToolbarColumn {
   key: string;
@@ -32,12 +33,11 @@ export function Toolbar({ items, filters, onFilterChange, search, onSearchChange
   if (items.length === 0) return null;
 
   return (
-    <div
+    <HorizontalScroller
+      gap={10}
       style={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        alignItems: 'center',
-        gap: 10,
+        flexShrink: 0,
+        width: '100%',
         padding: '4px 12px 0 12px',
         borderBottom: '0px solid var(--border)',
         background: 'transparent',
@@ -169,6 +169,6 @@ export function Toolbar({ items, filters, onFilterChange, search, onSearchChange
             return null;
         }
       })}
-    </div>
+    </HorizontalScroller>
   );
 }

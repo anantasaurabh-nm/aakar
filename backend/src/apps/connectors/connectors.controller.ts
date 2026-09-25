@@ -632,4 +632,53 @@ export class ConnectorsController {
   ) {
     return this.testConnectionLive(user, body);
   }
+
+  // ---------------------------------------------------------------------------
+  // End-User Connector Endpoints (Claude.ai Settings -> Connectors pattern)
+  // Accessible to any authenticated user in the tenant
+  // ---------------------------------------------------------------------------
+
+  /**
+   * List all available catalog connectors for the current user and their personal connection status.
+   */
+  @Get('user/connectors')
+  async listUserConnectors(@CurrentUser() user: AuthenticatedUser) {
+    return this.connectorsService.listUserConnectors(user.tenantId, user.id);
+  }
+
+  /**
+   * Connect personal user credentials to an approved catalog connector.
+   */
+  @Post('user/connectors/:id/connect')
+  async connectUserCredentials(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    const creds = (body.credentials as Record<string, unknown>) ?? body;
+    return this.connectorsService.connectUser(user.tenantId, user.id, id, creds);
+  }
+
+  /**
+   * Disconnect personal user credentials from a connector.
+   */
+  @Post('user/connectors/:id/disconnect')
+  async disconnectUserCredentials(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+  ) {
+    await this.connectorsService.disconnectUser(user.tenantId, user.id, id);
+    return { success: true, message: 'Disconnected successfully.' };
+  }
+
+  /**
+   * Re-test personal user connection on demand.
+   */
+  @Post('user/connectors/:id/test')
+  async testUserCredentials(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+  ) {
+    return this.connectorsService.testUserConnection(user.tenantId, user.id, id);
+  }
 }

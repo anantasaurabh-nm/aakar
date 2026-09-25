@@ -13,6 +13,7 @@ export const SYSTEM_MODULE_IDS = new Set([
   'module-management',
   'ai-configuration',
   'connectors',
+  'notifications',
 ]);
 
 export const MODULE_MANIFESTS: (ModuleManifest & { icon: string })[] = [
@@ -60,5 +61,14 @@ export const MODULE_MANIFESTS: (ModuleManifest & { icon: string })[] = [
     type: 'native',
     surfaces: ['admin'],
     icon: 'sparkles',
+  },
+  {
+    id: 'notifications',
+    name: 'Notifications & Alerts',
+    version: '1.0.0',
+    description: 'Multi-channel notification routing, push subscriptions, and provider setup',
+    type: 'native',
+    surfaces: ['admin'],
+    icon: 'bell',
   },
 ];

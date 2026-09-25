@@ -1,0 +1,84 @@
+Walkthrough: Generic Reference Resolver & Module Architecture
+We have eliminated all hardcoded entity/user checks from core and implemented a fully generic, schema-driven Reference Resolution Architecture. Any module can now reference any other module with zero changes to core code.
+
+1. Architectural Changes
+A. Shared Contract Updates
+In 
+packages/shared-contracts/src/api/entity-schema.ts
+:
+
+EntityDefinitionSchema: Added displayField?: string so target entities declare their default label field (e.g. "displayField": "employee_name" in employees).
+EntityFieldSchema: Added displayField?: string so reference fields can optionally override which field to display (e.g. "displayField": "username").
+B. New Generic Service: ReferenceResolverService
+In 
+backend/src/core/entity-engine/reference-resolver.service.ts
+:
+
+resolveTargetMeta(targetRef, callerDisplayField): Dynamically inspects any <module>.<entity>, determines the table name via tableName(module, entity), and resolves the display column using: $$\text{callerDisplayField} ;\to; \text{targetEntity.displayField} ;\to; \text{standard candidates (name, title, label, username...)} ;\to; \text{first string field} ;\to; \text{'id'}$$
+getOptions(targetRef, tenantId, callerDisplayField): Generates dropdown options for form views dynamically.
+resolveBatchLabels(targetRef, ids, tenantId, callerDisplayField): Batch-enriches table rows with resolved human-readable display labels (fieldKey + '__label') via a single query.
+searchReference(targetRef, tenantId, searchTerm, callerDisplayField): Resolves natural language references for AI chat and returns available options when not found.
+C. Core Decoupling
+entity-engine.controller.ts
+: Removed all hardcoded core.user checks. getForm calls referenceResolver.getOptions(field.entity, user.tenantId, field.displayField).
+entity-registry.service.ts
+: Removed all hardcoded user table queries. executeList and executeGet call referenceResolver.resolveBatchLabels(...).
+orchestrator.service.ts
+: Removed hardcoded user table queries. AI uses referenceResolver.searchReference(...) for any referenced entity.
+2. Updated Schema Examples
+modules/hello-notes/schema.json
+json
+
+{
+  "entities": {
+    "note": {
+      "label": "Note",
+      "displayField": "title",
+      "fields": {
+        "title": { "type": "string", "label": "Title", "required": true, "sortable": true, "searchable": true },
+        "content": { "type": "text", "label": "Content", "searchable": true },
+        "assigned_to": {
+          "type": "reference",
+          "entity": "core.user",
+          "displayField": "username",
+          "label": "Assigned To"
+        }
+      }
+    }
+  }
+}
+modules/employees/schema.json
+json
+
+{
+  "entities": {
+    "employee": {
+      "label": "Employee",
+      "displayField": "employee_name",
+      "fields": {
+        "employee_name": { "type": "string", "label": "Employee Name", "required": true }
+      }
+    }
+  }
+}
+3. Verification Test Results
+text
+
+--- Testing Reference Field Label Enrichment & AI User Resolution ---
+✓ 1. Notes Data from API:
+   - Title: "Sprint Planning", assigned_to: "cmtesz0cp0016hzyj2qhrcsds", assigned_to__label: "sarah.connor"
+   - Title: "Architectural Review Note (Updated)", assigned_to: "cmth2gl1k000qfr5jp0nsv1xx", assigned_to__label: "bob.accountant"
+--- 2. Testing AI with non-existent user "Rahul" ---
+AI Response Mode: text
+AI Response Text:
+ User 'Rahul' was not found in the system. Available users are: Sarah Connor, Marcus Vance, Rachel Adams, Elena Rostova, Bob Accountant. Would you like to assign it to one of them?
+--- 3. Testing AI with existing user "Sarah" ---
+AI Response Mode: ui
+AI Response Text: Created new Note. You can edit and save the details in the form.
+✓ 4. Sarah Note in Database:
+   Title: Sprint Planning
+   assigned_to (User ID): cmtesz0cp0016hzyj2qhrcsds
+   assigned_to__label (Display Name): sarah.connor
+========================================
+🎉 ALL TESTS PASSED SUCCESSFULLY!
+========================================

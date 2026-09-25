@@ -18,6 +18,8 @@ import { ModuleManagementModule } from './apps/module-management/module-manageme
 import { AiConfigurationModule } from './apps/ai-configuration/ai-configuration.module';
 import { ConnectorsCoreModule } from './core/connectors/connectors.module';
 import { ConnectorsAppModule } from './apps/connectors/connectors.module';
+import { NotificationsCoreModule } from './core/notifications/notifications.module';
+import { NotificationsAppModule } from './apps/notifications/notifications.module';
 import { ModuleSettingsModule } from './core/module-settings/module-settings.module';
 
 @Module({
@@ -32,6 +34,7 @@ import { ModuleSettingsModule } from './core/module-settings/module-settings.mod
     AuthModule,
     AiModule,
     ConnectorsCoreModule,
+    NotificationsCoreModule,
     ModuleSettingsModule,
     HomeModule,
     UserManagementModule,
@@ -39,6 +42,7 @@ import { ModuleSettingsModule } from './core/module-settings/module-settings.mod
     ModuleManagementModule,
     AiConfigurationModule,
     ConnectorsAppModule,
+    NotificationsAppModule,
     EntityEngineModule,
   ],
 })

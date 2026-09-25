@@ -1,0 +1,6 @@
+DB_HOST=127.0.0.1
+DB_PORT=5432
+DB_NAME=doers_os_4
+DB_USER=usr_doers_os
+DB_PASSWORD=4rewedertyGGGTReeDDfgt567812@@
+DATABASE_URL=postgres://usr_doers_os:4rewedertyGGGTReeDDfgt567812@@127.0.0.1:5432/doers_os_4

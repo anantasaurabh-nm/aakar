@@ -27,6 +27,11 @@ const REGISTRY: Record<string, DataSourceFn> = {
   connectors: (params) => apiClient.get(`data/connectors${buildQuery(params ?? {})}`),
   'connectors.list': (params) => apiClient.get(`data/connectors${buildQuery(params ?? {})}`),
   'connectors.connection': (params) => apiClient.get(`data/connectors${buildQuery(params ?? {})}`),
+
+  notifications: (params) => apiClient.get(`data/notifications${buildQuery(params ?? {})}`),
+  'notifications.list': (params) => apiClient.get(`data/notifications${buildQuery(params ?? {})}`),
+  'notifications.unread-count': () => apiClient.get('data/notifications/unread-count'),
+  'notifications.channel-configs': () => apiClient.get('data/notifications/channel-configs'),
 };
 
 export class UnknownDataSourceError extends Error {

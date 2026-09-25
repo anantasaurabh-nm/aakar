@@ -28,15 +28,15 @@ export class PermissionsService {
     }
     const rows = await this.prisma.rolePermission.findMany();
     const map = new Map<string, Set<string>>();
-    if (rows.length === 0) {
-      for (const [role, perms] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
-        map.set(role, new Set(perms));
-      }
-    } else {
-      for (const row of rows) {
-        if (!map.has(row.role)) map.set(row.role, new Set());
-        map.get(row.role)!.add(row.permission);
-      }
+
+    // Always include system defaults so newly added core permissions are active
+    for (const [role, perms] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
+      map.set(role, new Set(perms));
+    }
+
+    for (const row of rows) {
+      if (!map.has(row.role)) map.set(row.role, new Set());
+      map.get(row.role)!.add(row.permission);
     }
     this.cache = { at: Date.now(), map };
     return map;

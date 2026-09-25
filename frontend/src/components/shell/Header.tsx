@@ -7,6 +7,8 @@ import type { SDUIBrand, SDUINavigation, SDUINavigationItem } from '@erp/shared-
 import { resolveIcon } from '@/lib/icon-registry';
 import { useUiStore } from '@/lib/ui-store';
 import { UserMenu } from './UserMenu';
+import { NotificationDropdown } from './NotificationDropdown';
+import { registerServiceWorker } from '@/lib/push-notifications';
 
 function NavDropdownItem({
   item,
@@ -398,13 +400,25 @@ export function Header({ brand, navigation }: { brand: SDUIBrand; navigation: SD
         <div style={{ position: 'relative', display: 'none' }}>
           <Search size={14} />
         </div>
-        <IconButton label="Notifications" onClick={() => { }}>
-          <Bell size={17} />
-        </IconButton>
+        <NotificationDropdown />
         <IconButton label="Compose" onClick={() => { }}>
           <PenSquare size={17} />
         </IconButton>
-        <IconButton label="Settings" onClick={() => { }}>
+        <IconButton
+          label="Settings"
+          onClick={() => {
+            const modId = brand.moduleId || (pathname?.startsWith('/app/') ? pathname.split('/')[2] : undefined);
+            if (modId) {
+              if (pathname?.includes('view=settings')) {
+                router.push(`/app/${modId}`);
+              } else {
+                router.push(`/app/${modId}?view=settings`);
+              }
+            } else {
+              router.push('/admin/connectors');
+            }
+          }}
+        >
           <Settings size={17} />
         </IconButton>
         <button

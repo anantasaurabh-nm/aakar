@@ -25,10 +25,14 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users          User[]
-  auditLogs      AuditLog[]
-  connections    CoreConnection[]
-  moduleSettings ModuleSetting[]
+  users                      User[]
+  auditLogs                  AuditLog[]
+  connections                CoreConnection[]
+  userConnections            UserConnection[]
+  moduleSettings             ModuleSetting[]
+  notifications              Notification[]
+  pushSubscriptions          PushSubscription[]
+  notificationChannelConfigs NotificationChannelConfig[]
 
   @@map("tenants")
 }
@@ -59,8 +63,10 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  auditLogs      AuditLog[]
-  moduleSettings ModuleSetting[]
+  auditLogs         AuditLog[]
+  moduleSettings    ModuleSetting[]
+  pushSubscriptions PushSubscription[]
+  userConnections   UserConnection[]
 
   // Module-owned tables (e.g. todo_task.created_by) reference this id via a
   // plain scalar column with no @relation, since those tables aren't Prisma
@@ -219,12 +225,19 @@ enum ConnectionStatus {
   error
 }
 
+enum ConnectionScope {
+  tenant
+  user
+}
+
 model CoreConnection {
   id                   String              @id @default(cuid())
   tenantId             String
   tenant               Tenant              @relation(fields: [tenantId], references: [id])
-  provider             String              // e.g. "shopify", "mygate", "slack", "sendgrid", "custom"
+  provider             String              // e.g. "shopify", "mygate", "slack", "sendgrid", "custom", "mcp"
   name                 String              // e.g. "Production Shopify Store"
+  description          String?
+  scope                ConnectionScope     @default(user)
   authType             ConnectionAuthType  @default(api_key)
   baseUrl              String?
   encryptedCredentials String              // AES-256-GCM encrypted JSON payload
@@ -238,9 +251,33 @@ model CoreConnection {
   createdAt            DateTime            @default(now())
   updatedAt            DateTime            @updatedAt
 
+  userConnections      UserConnection[]
+
   @@unique([tenantId, provider, name])
   @@index([tenantId, provider])
   @@map("core_connections")
+}
+
+model UserConnection {
+  id                   String              @id @default(cuid())
+  tenantId             String
+  tenant               Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId               String
+  user                 User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connectionId         String
+  connection           CoreConnection      @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  encryptedCredentials String              // AES-256-GCM encrypted user credentials
+  maskedPreview        String?             // e.g. "sfg••••••••1241"
+  status               ConnectionStatus    @default(active)
+  lastTestedAt         DateTime?
+  lastTestedStatus     String?             // "ok (Xms)" | error message
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  @@unique([tenantId, userId, connectionId])
+  @@index([tenantId, userId])
+  @@index([connectionId])
+  @@map("user_connections")
 }
 
 // ---------------------------------------------------------------------------
@@ -262,5 +299,76 @@ model ModuleSetting {
   @@unique([tenantId, moduleId, userId, key])
   @@index([tenantId, moduleId, userId])
   @@map("module_settings")
+}
+
+// ---------------------------------------------------------------------------
+// Notifications & Web Push Engine (DoersOS Notification System Spec)
+// ---------------------------------------------------------------------------
+
+model Notification {
+  id              String    @id @default(cuid())
+  tenantId        String
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  recipientId     String    // User ID or recipient identifier
+  title           String
+  body            String
+  type            String    @default("informational") // informational, action_required, warning, success, error, system
+  priority        String    @default("normal")        // low, normal, high, urgent
+  status          String    @default("delivered")     // requested, queued, processing, delivered, failed, cancelled
+  channels        String[]  // ["in_app", "email", "push", "whatsapp", "sms"]
+  sourceModule    String?   // e.g. "todo", "finance"
+  sourceEntity    String?   // e.g. "task", "invoice"
+  sourceId        String?   // e.g. "TASK-123"
+  actions         Json?     // [{ id, label, action, url, variant }]
+  readAt          DateTime?
+  expiresAt       DateTime?
+  idempotencyKey  String?
+  metadata        Json?
+  deliveryDetails Json?     // Channel-by-channel delivery details: { in_app: { status }, email: { status, provider }, push: { status, count } }
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([tenantId, recipientId, readAt])
+  @@index([tenantId, createdAt])
+  @@unique([tenantId, idempotencyKey])
+  @@map("notifications")
+}
+
+model PushSubscription {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint    String   @unique
+  p256dhKey   String
+  authKey     String
+  userAgent   String?
+  status      String   @default("active") // active, expired, revoked
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId, userId])
+  @@map("push_subscriptions")
+}
+
+model NotificationChannelConfig {
+  id                   String    @id @default(cuid())
+  tenantId             String
+  tenant               Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  channel              String    // "in_app", "email", "push", "whatsapp", "sms"
+  provider             String    // "smtp", "resend", "webpush", "meta_whatsapp", "twilio_whatsapp", "twilio_sms"
+  isEnabled            Boolean   @default(true)
+  isDefault            Boolean   @default(false)
+  encryptedCredentials String?   // Encrypted JSON payload for secrets
+  configuration        Json?     // Non-secret config: { host, port, secure, fromEmail, fromName, vapidSubject, etc. }
+  lastTestedAt         DateTime?
+  lastTestedStatus     String?   // "ok" | error message
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@unique([tenantId, channel, provider])
+  @@index([tenantId, channel])
+  @@map("notification_channel_configs")
 }
 

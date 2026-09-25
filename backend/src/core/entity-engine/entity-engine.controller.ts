@@ -1,4 +1,5 @@
 import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import {
   ColumnFilterSchema,
   SDUI_SCHEMA_VERSION,
@@ -37,6 +38,7 @@ import {
 import { loadModuleOnDisk, getWorkflowForEntity, getSettingsForModule } from './module-schema-loader';
 import { ReferenceResolverService } from './reference-resolver.service';
 import { ModuleSettingsService } from '../module-settings/module-settings.service';
+import { NotificationsController } from '../../apps/notifications/notifications.controller';
 
 @Controller()
 @UseGuards(JwtAuthGuard, ModuleEnabledGuard)
@@ -49,6 +51,7 @@ export class EntityEngineController {
     private readonly permissionsService: PermissionsService,
     private readonly referenceResolver: ReferenceResolverService,
     private readonly moduleSettingsService: ModuleSettingsService,
+    private readonly moduleRef: ModuleRef,
   ) {}
 
   private async assertRead(user: AuthenticatedUser, module: string, entityKey: string) {
@@ -70,7 +73,19 @@ export class EntityEngineController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('module') module: string,
     @Query('view') view?: string,
+    @Query('record') record?: string,
   ) {
+    if (module === 'notifications') {
+      try {
+        const notifCtrl = this.moduleRef.get(NotificationsController, { strict: false });
+        if (notifCtrl) {
+          return await notifCtrl.getAdminPage(user);
+        }
+      } catch {
+        // continue to normal page resolution
+      }
+    }
+
     const registryEntry = await this.moduleRegistry.get(module);
     const entities = Object.entries(this.entitiesForModule(module));
     if (entities.length > 0) await this.assertRead(user, module, entities[0]![0]);
@@ -185,7 +200,7 @@ export class EntityEngineController {
       };
     }
 
-    const sections = entities.flatMap(([entityKey, entity]) => [
+    let sections = entities.flatMap(([entityKey, entity]) => [
       {
         id: `${entityKey}-insights`,
         label: 'Insights',
@@ -232,6 +247,7 @@ export class EntityEngineController {
           { id: 'refresh', type: 'action' as const, label: 'Refresh', action: { type: 'refresh' as const } },
         ],
         data: { source: `${module}.${entityKey}` },
+        state: record ? { initialRecordId: record } : undefined,
         config: {
           columns: columnsFromSchema(entity),
           selectable: true,
@@ -242,6 +258,14 @@ export class EntityEngineController {
       },
     ]);
 
+    // If a specific record was requested, elevate the table/detail section first
+    const orderedSections = (() => {
+      if (!record) return sections;
+      const tableIndex = sections.findIndex((s) => s.type === 'table');
+      if (tableIndex <= 0) return sections;
+      return [sections[tableIndex], ...sections.slice(0, tableIndex), ...sections.slice(tableIndex + 1)];
+    })();
+
     return {
       schema: SDUI_SCHEMA_VERSION,
       brand: {
@@ -251,7 +275,7 @@ export class EntityEngineController {
         hasSettings,
       },
       navigation: { items: [] },
-      page: { id: module, title: registryEntry?.name ?? module, sections },
+      page: { id: module, title: registryEntry?.name ?? module, sections: orderedSections },
     };
   }
 
@@ -469,14 +493,23 @@ export class EntityEngineController {
       }
     }
 
+    const customToolbar = (customView as any)?.toolbar || (entity as any)?.toolbar;
+    const baseToolbar = [
+      { id: 'cancel', type: 'action' as const, label: 'Cancel', action: { type: 'cancel' as const } },
+      { id: 'save', type: 'action' as const, label: 'Save', action: { type: 'submit' as const } },
+    ];
+    const toolbar = customToolbar && Array.isArray(customToolbar) && customToolbar.length > 0
+      ? [
+          ...baseToolbar,
+          ...customToolbar.filter((t: any) => t && t.id !== 'cancel' && t.id !== 'save'),
+        ]
+      : baseToolbar;
+
     return {
       id: `${module}-${entityKey}-form`,
       label: existing ? `Edit ${entity.label ?? entityKey}` : `New ${entity.label ?? entityKey}`,
       type: 'form' as const,
-      toolbar: [
-        { id: 'cancel', type: 'action' as const, label: 'Cancel', action: { type: 'cancel' as const } },
-        { id: 'save', type: 'action' as const, label: 'Save', action: { type: 'submit' as const } },
-      ],
+      toolbar,
       config: {
         fields,
         layout,

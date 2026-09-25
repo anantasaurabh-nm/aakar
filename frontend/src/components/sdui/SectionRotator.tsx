@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react';
-import type { SDUISectionOrInvalid } from '@erp/shared-contracts';
+import { useSearchParams } from 'next/navigation';
+import { isInvalidSection, type SDUISectionOrInvalid } from '@erp/shared-contracts';
 import { AccordionDivider } from './AccordionDivider';
 
 export interface SectionRotatorProps {
@@ -15,7 +16,21 @@ export interface SectionRotatorProps {
  * ordering/rotation/scroll only — no business logic for any section type.
  */
 export function SectionRotator({ sections, onActiveSectionChange, renderSection }: SectionRotatorProps) {
-  const [panelOrder, setPanelOrder] = useState<string[]>(() => sections.map((s) => s.id));
+  const searchParams = useSearchParams();
+  const queryRecord = searchParams?.get('record');
+
+  const getOrderedIds = useCallback(() => {
+    const recordSec = sections.find(
+      (s) => !isInvalidSection(s) && ((s.state as any)?.initialRecordId || (queryRecord && s.type === 'table')),
+    );
+    if (recordSec) {
+      const rest = sections.filter((s) => s.id !== recordSec.id).map((s) => s.id);
+      return [recordSec.id, ...rest];
+    }
+    return sections.map((s) => s.id);
+  }, [sections, queryRecord]);
+
+  const [panelOrder, setPanelOrder] = useState<string[]>(getOrderedIds);
   const [translatePos, setTranslatePos] = useState('-32px');
   const [useTransition, setUseTransition] = useState(true);
   const isRotatingRef = useRef(false);
@@ -24,11 +39,15 @@ export function SectionRotator({ sections, onActiveSectionChange, renderSection 
 
   useEffect(() => {
     setPanelOrder((prev) => {
+      const preferred = getOrderedIds();
+      if (queryRecord && preferred[0] && prev[0] !== preferred[0]) {
+        return preferred;
+      }
       const validExisting = prev.filter((id) => sections.some((s) => s.id === id));
       const missing = sections.filter((s) => !validExisting.includes(s.id)).map((s) => s.id);
       return [...validExisting, ...missing];
     });
-  }, [sections]);
+  }, [sections, getOrderedIds, queryRecord]);
 
   useEffect(() => {
     function handleActivateSection(e: Event) {

@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { KeyRound, LogOut, Shield, UserRound } from 'lucide-react';
+import { LogOut, Plug, Sparkles, Shield, UserRound } from 'lucide-react';
 import { useSession } from '@/lib/session';
 import { fetchDataSource } from '@/lib/data-source-registry';
 import { apiClient } from '@/lib/api-client';
@@ -116,10 +116,31 @@ export function UserMenu() {
           <div style={{ borderTop: '1px solid var(--border)', margin: '14px 0 6px' }} />
 
           {showAdminTools && (
-            <MenuItem icon={<Shield size={16} />} label="Admin Tools" onClick={() => router.push('/admin')} />
+            <MenuItem
+              icon={<Shield size={16} />}
+              label="Admin Hub"
+              onClick={() => {
+                setOpen(false);
+                router.push('/admin');
+              }}
+            />
           )}
-          <MenuItem icon={<UserRound size={16} />} label="Account Profile" onClick={() => setOpen(false)} />
-          <MenuItem icon={<KeyRound size={16} />} label="API Keys & Tokens" onClick={() => setOpen(false)} />
+          <MenuItem
+            icon={<Plug size={16} />}
+            label="Connectors & Integrations"
+            onClick={() => {
+              setOpen(false);
+              router.push('/admin/connectors');
+            }}
+          />
+          <MenuItem
+            icon={<Sparkles size={16} />}
+            label="AI Configuration"
+            onClick={() => {
+              setOpen(false);
+              router.push('/admin/ai-configuration');
+            }}
+          />
 
           <div style={{ borderTop: '1px solid var(--border)', margin: '6px 0' }} />
           <MenuItem icon={<LogOut size={16} />} label="Sign Out" onClick={signOut} danger />

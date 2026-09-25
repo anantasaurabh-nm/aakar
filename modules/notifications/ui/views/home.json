@@ -1,0 +1,78 @@
+{
+  "schema": "1.0",
+  "brand": {
+    "name": "Notifications & Alerts",
+    "icon": "bell"
+  },
+  "navigation": {
+    "items": [
+      {
+        "id": "nav-perspectives",
+        "label": "Perspectives",
+        "icon": "layout",
+        "items": [
+          {
+            "id": "persp-overview",
+            "label": "System Overview",
+            "icon": "activity",
+            "action": { "type": "navigate", "target": "#overview" }
+          },
+          {
+            "id": "persp-log",
+            "label": "Notification Logs",
+            "icon": "bell",
+            "action": { "type": "navigate", "target": "#all-notifications" }
+          },
+          {
+            "id": "persp-email",
+            "label": "Email (SMTP & Providers)",
+            "icon": "mail",
+            "action": { "type": "navigate", "target": "#channel-email" }
+          },
+          {
+            "id": "persp-push",
+            "label": "Web Push (PWA)",
+            "icon": "smartphone",
+            "action": { "type": "navigate", "target": "#channel-push" }
+          },
+          {
+            "id": "persp-whatsapp",
+            "label": "WhatsApp Business",
+            "icon": "message-circle",
+            "action": { "type": "navigate", "target": "#channel-whatsapp" }
+          },
+          {
+            "id": "persp-sms",
+            "label": "SMS Messaging",
+            "icon": "message-square",
+            "action": { "type": "navigate", "target": "#channel-sms" }
+          }
+        ]
+      },
+      {
+        "id": "nav-bridges",
+        "label": "Admin Hub",
+        "icon": "shield",
+        "items": [
+          {
+            "id": "bridge-connectors",
+            "label": "Connectors & APIs",
+            "icon": "sparkles",
+            "action": { "type": "navigate", "target": "/admin/connectors" }
+          },
+          {
+            "id": "bridge-modules",
+            "label": "Installed Modules",
+            "icon": "modules",
+            "action": { "type": "navigate", "target": "/admin/module-management" }
+          }
+        ]
+      }
+    ]
+  },
+  "page": {
+    "id": "notifications",
+    "title": "Notifications & Alerts",
+    "sections": []
+  }
+}

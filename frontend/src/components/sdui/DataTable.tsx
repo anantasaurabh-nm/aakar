@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createColumnHelper,
@@ -416,10 +417,12 @@ export function DataTable({ section }: { section: TableSection }) {
   const [formState, setFormState] = useState<{ open: boolean; section?: Record<string, unknown> }>({ open: false });
   const [executingTarget, setExecutingTarget] = useState<string | null>(null);
 
-  const initialRecordId = (section.state as Record<string, unknown> | undefined)?.initialRecordId as string | undefined;
+  const searchParams = useSearchParams();
+  const queryRecordId = isDetailView ? searchParams?.get('record') : null;
+  const initialRecordId = queryRecordId || ((section.state as Record<string, unknown> | undefined)?.initialRecordId as string | undefined);
   const [viewState, setViewState] = useState<{ mode: 'list' } | { mode: 'record'; recordId?: string; startInEditMode?: boolean }>(() => {
     if (initialRecordId) {
-      return { mode: 'record', recordId: initialRecordId, startInEditMode: true };
+      return { mode: 'record', recordId: initialRecordId, startInEditMode: false };
     }
     return { mode: 'list' };
   });
@@ -429,11 +432,17 @@ export function DataTable({ section }: { section: TableSection }) {
   const [view, setView] = useState<'table' | 'card'>('table');
 
   useEffect(() => {
+    if (queryRecordId && isDetailView) {
+      setViewState({ mode: 'record', recordId: queryRecordId, startInEditMode: false });
+    }
+  }, [queryRecordId, isDetailView]);
+
+  useEffect(() => {
     const s = section.state as Record<string, unknown> | undefined;
     if (s) {
       if (s.initialRecordId) {
-        setViewState({ mode: 'record', recordId: String(s.initialRecordId), startInEditMode: true });
-      } else {
+        setViewState({ mode: 'record', recordId: String(s.initialRecordId), startInEditMode: false });
+      } else if (!queryRecordId) {
         setViewState({ mode: 'list' });
       }
       if (s.columnFilters !== undefined) {
@@ -447,7 +456,7 @@ export function DataTable({ section }: { section: TableSection }) {
       }
       setPage(1);
     }
-  }, [section]);
+  }, [section, queryRecordId]);
 
   // Popover menus
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
@@ -707,7 +716,14 @@ export function DataTable({ section }: { section: TableSection }) {
         entity={entityKey}
         recordId={viewState.recordId}
         startInEditMode={viewState.startInEditMode}
-        onClose={() => setViewState({ mode: 'list' })}
+        onClose={() => {
+          setViewState({ mode: 'list' });
+          if (typeof window !== 'undefined' && window.location.search.includes('record=')) {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('record');
+            window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+          }
+        }}
         hasPrev={hasPrev}
         hasNext={hasNext}
         recordIndex={currentIndex >= 0 ? currentIndex + 1 : undefined}

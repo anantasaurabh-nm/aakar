@@ -45,6 +45,7 @@ export const EntityDefinitionSchema = z.object({
   displayField: z.string().optional(), // the default title/label field of this entity when referenced by others
   fields: z.record(SchemaIdentifierSchema, EntityFieldSchema),
   readOnly: z.boolean().default(false),
+  toolbar: z.array(z.record(z.unknown())).optional(),
 });
 export type EntityDefinition = z.infer<typeof EntityDefinitionSchema>;
 

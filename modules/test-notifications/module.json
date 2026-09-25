@@ -1,0 +1,9 @@
+{
+  "id": "test-notifications",
+  "name": "Notification Lab",
+  "version": "1.0.0",
+  "description": "Test and demonstrate multi-channel notification dispatches across In-App, Web Push, Email, WhatsApp, and SMS using record fields.",
+  "type": "native",
+  "surfaces": ["app"],
+  "icon": "bell"
+}

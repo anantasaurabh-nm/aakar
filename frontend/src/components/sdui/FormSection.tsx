@@ -1,12 +1,14 @@
 'use client';
 
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
-import { Check, X, ArrowLeft } from 'lucide-react';
+import { Check, X, Zap, Loader2 } from 'lucide-react';
 import type { FormSectionSchema, SDUIAction, SDUIToolbarItem } from '@erp/shared-contracts';
 import type { z } from 'zod';
 import { DynamicForm } from './DynamicForm';
 import { useUiStore } from '@/lib/ui-store';
+import { getSubmitTarget } from '@/lib/action-registry';
 
 type FormSectionType = z.infer<typeof FormSectionSchema>;
 
@@ -14,6 +16,45 @@ export function FormSection({ section }: { section: FormSectionType }) {
   const formId = `form-${section.id}`;
   const queryClient = useQueryClient();
   const router = useRouter();
+  const pushToast = useUiStore((s) => s.pushToast);
+
+  const getValuesRef = useRef<(() => Record<string, unknown>) | null>(null);
+  const [isExecuting, setIsExecuting] = useState<string | null>(null);
+
+  const handleCustomAction = async (target: string, itemId: string) => {
+    setIsExecuting(itemId);
+    pushToast('Running test probe…');
+    try {
+      const form = document.getElementById(formId) as HTMLFormElement | null;
+      let liveValues: Record<string, unknown> = {};
+      if (getValuesRef.current) {
+        liveValues = getValuesRef.current();
+      } else if (form) {
+        liveValues = Object.fromEntries(new FormData(form).entries());
+      }
+
+      const submitTarget = getSubmitTarget(target);
+      const payload = {
+        ...(section.state ?? {}),
+        ...liveValues,
+      };
+      const res = (await submitTarget.execute(payload)) as Record<string, unknown>;
+      const isFailed = res && typeof res === 'object' && res.success === false;
+      const message = (res && typeof res === 'object' && res.message) || 'Action completed successfully';
+      if (isFailed) {
+        pushToast(String(message), 'error');
+      } else {
+        pushToast(String(message), 'success');
+      }
+      for (const source of submitTarget.invalidates) {
+        queryClient.invalidateQueries({ queryKey: ['ds', source] });
+      }
+    } catch (err) {
+      pushToast(err instanceof Error ? err.message : 'Action execution failed', 'error');
+    } finally {
+      setIsExecuting(null);
+    }
+  };
 
   const handleAction = (action: SDUIAction) => {
     if (action.type === 'submit') {
@@ -63,17 +104,27 @@ export function FormSection({ section }: { section: FormSectionType }) {
       >
         {toolbarItems.map((item) => {
           if (item.type === 'action') {
-            const isSubmit = item.action?.type === 'submit';
+            const isCustomAction = Boolean(
+              item.action?.target && item.action.target !== section.config.submitAction.target,
+            );
+            const isDefaultSubmit = item.action?.type === 'submit' && !isCustomAction;
             const isCancel = item.action?.type === 'cancel';
-            const isPrimary = isSubmit && item.id !== 'cancel';
+            const isPrimary = isDefaultSubmit && item.id !== 'cancel';
+            const isBusy = isExecuting === item.id;
+            const isTest = item.id.toLowerCase().includes('test') || item.label?.toLowerCase().includes('test');
 
             return (
               <button
                 key={item.id}
-                type={isSubmit ? 'submit' : 'button'}
-                form={isSubmit ? formId : undefined}
+                type={isDefaultSubmit ? 'submit' : 'button'}
+                form={isDefaultSubmit ? formId : undefined}
+                disabled={isBusy}
                 onClick={() => {
-                  if (item.action) handleAction(item.action);
+                  if (isCustomAction && item.action?.target) {
+                    handleCustomAction(item.action.target, item.id);
+                  } else if (item.action) {
+                    handleAction(item.action);
+                  }
                 }}
                 style={{
                   display: 'inline-flex',
@@ -86,20 +137,28 @@ export function FormSection({ section }: { section: FormSectionType }) {
                   color: isPrimary ? '#fff' : 'var(--text-primary)',
                   fontWeight: 600,
                   fontSize: 13,
-                  cursor: 'pointer',
+                  cursor: isBusy ? 'wait' : 'pointer',
                   boxShadow: isPrimary ? 'var(--shadow-sm)' : 'none',
+                  opacity: isBusy ? 0.75 : 1,
                   transition: 'background-color 0.15s ease, transform 0.05s ease',
                 }}
                 onMouseEnter={(e) => {
-                  if (!isPrimary) e.currentTarget.style.backgroundColor = 'var(--surface-2)';
+                  if (!isPrimary && !isBusy) e.currentTarget.style.backgroundColor = 'var(--surface-2)';
                 }}
                 onMouseLeave={(e) => {
-                  if (!isPrimary) e.currentTarget.style.backgroundColor = 'var(--surface)';
+                  if (!isPrimary && !isBusy) e.currentTarget.style.backgroundColor = 'var(--surface)';
                 }}
               >
-                {isSubmit && <Check size={15} strokeWidth={2.5} />}
-                {isCancel && <X size={14} />}
-                <span>{item.label ?? item.id}</span>
+                {isBusy ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : isTest ? (
+                  <Zap size={14} style={{ color: '#f59e0b' }} />
+                ) : isDefaultSubmit ? (
+                  <Check size={15} strokeWidth={2.5} />
+                ) : isCancel ? (
+                  <X size={14} />
+                ) : null}
+                <span>{isBusy ? 'Testing…' : item.label ?? item.id}</span>
               </button>
             );
           }
@@ -135,8 +194,10 @@ export function FormSection({ section }: { section: FormSectionType }) {
           <DynamicForm
             formId={formId}
             config={section.config}
+            initialValues={section.state ?? (section as any).config?.initialValues}
             onCancel={() => handleAction({ type: 'cancel' })}
             onSuccess={handleSuccess}
+            getFormValuesRef={getValuesRef}
             hideButtons={true}
           />
         </div>

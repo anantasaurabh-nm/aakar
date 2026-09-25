@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -48,6 +48,7 @@ export interface DynamicFormProps {
   /** Hides just the Cancel button (e.g. a Settings group has nothing to cancel back to) while keeping Save. */
   hideCancel?: boolean;
   formId?: string;
+  getFormValuesRef?: React.MutableRefObject<(() => Record<string, unknown>) | null>;
 }
 
 /** SDUI -> DynamicForm -> React Hook Form -> Zod -> API action (stack.md §9). */
@@ -59,6 +60,7 @@ export function DynamicForm({
   hideButtons = false,
   hideCancel = false,
   formId,
+  getFormValuesRef,
 }: DynamicFormProps) {
   const [serverError, setServerError] = useState<string | null>(null);
   const [testingGroup, setTestingGroup] = useState<string | null>(null);
@@ -88,6 +90,7 @@ export function DynamicForm({
     register,
     handleSubmit,
     watch,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: dynamicResolver,
@@ -96,6 +99,12 @@ export function DynamicForm({
 
   // Watch form values for live conditional visibility evaluation
   const formValues = watch();
+
+  useEffect(() => {
+    if (getFormValuesRef) {
+      getFormValuesRef.current = () => getValues();
+    }
+  }, [getFormValuesRef, getValues]);
 
   const onSubmit = async (values: Record<string, unknown>) => {
     setServerError(null);

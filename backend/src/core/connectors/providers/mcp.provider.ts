@@ -5,7 +5,7 @@ export const McpProvider: ConnectorProvider = {
   name: 'Model Context Protocol (MCP) Server',
   description: 'Connect to any remote MCP server over SSE/HTTP to dynamically discover AI tools and resources',
   icon: 'cpu',
-  defaultBaseUrl: 'http://localhost:8000/sse',
+  defaultBaseUrl: '',
 
   fields: [
     {
@@ -51,6 +51,10 @@ export const McpProvider: ConnectorProvider = {
       req.headers['Authorization'] = apiKey.startsWith('Bearer ') ? apiKey : `Bearer ${apiKey}`;
     }
 
+    if (!req.headers['MCP-Protocol-Version']) {
+      req.headers['MCP-Protocol-Version'] = '2024-11-05';
+    }
+
     if (creds.customHeaders && typeof creds.customHeaders === 'string' && creds.customHeaders.trim()) {
       try {
         const parsed = JSON.parse(creds.customHeaders);
@@ -64,11 +68,13 @@ export const McpProvider: ConnectorProvider = {
   },
 
   async test(creds, baseUrl) {
-    const targetUrl = baseUrl || String(creds.serverUrl || '').trim();
+    // Priority: creds.serverUrl explicitly configured on the connection takes precedence
+    const targetUrl = String(creds.serverUrl || baseUrl || '').trim();
     if (!targetUrl) {
       return { success: false, message: 'MCP server endpoint URL is required.' };
     }
 
+    const transport = String(creds.transport || 'sse').toLowerCase();
     const start = Date.now();
     try {
       const headers: Record<string, string> = {
@@ -94,22 +100,38 @@ export const McpProvider: ConnectorProvider = {
       let response: Response | undefined;
       let isJsonRpcSuccess = false;
       let serverName = '';
+      let postErrorDetail = '';
 
       try {
         response = await fetch(targetUrl, {
           method: 'POST',
           headers: fakeReq.headers,
           body: JSON.stringify(initPayload),
-          signal: AbortSignal.timeout(5000),
+          signal: AbortSignal.timeout(10000),
         });
 
+        const rawBody = await response.text().catch(() => '');
+
         if (response.ok) {
-          const contentType = response.headers.get('content-type') || '';
-          if (contentType.includes('application/json')) {
-            const data = (await response.json()) as Record<string, unknown>;
-            if (data && typeof data === 'object' && data.result && typeof data.result === 'object') {
+          let parsedData: Record<string, unknown> | null = null;
+          try {
+            parsedData = JSON.parse(rawBody);
+          } catch {
+            // Check for SSE stream formatted payload: e.g. "event: message\ndata: { ... }"
+            const dataMatch = rawBody.match(/data:\s*(\{.*\})/);
+            if (dataMatch?.[1]) {
+              try {
+                parsedData = JSON.parse(dataMatch[1]);
+              } catch {
+                // Ignore SSE JSON parse error
+              }
+            }
+          }
+
+          if (parsedData && typeof parsedData === 'object') {
+            if (parsedData.result && typeof parsedData.result === 'object') {
               isJsonRpcSuccess = true;
-              const resObj = data.result as Record<string, unknown>;
+              const resObj = parsedData.result as Record<string, unknown>;
               const serverInfo = resObj.serverInfo as Record<string, unknown> | undefined;
               if (serverInfo && typeof serverInfo.name === 'string') {
                 serverName = serverInfo.name;
@@ -117,20 +139,43 @@ export const McpProvider: ConnectorProvider = {
                   serverName += ` v${serverInfo.version}`;
                 }
               }
+            } else if (parsedData.error) {
+              const errObj = parsedData.error as Record<string, unknown>;
+              postErrorDetail = String(errObj.message || JSON.stringify(errObj));
             }
+          } else if (rawBody) {
+            isJsonRpcSuccess = true;
           }
+        } else {
+          postErrorDetail = `HTTP ${response.status} ${response.statusText}${
+            rawBody ? ` (${rawBody.slice(0, 180).replace(/\s+/g, ' ').trim()})` : ''
+          }`;
         }
-      } catch {
-        // Fallback to GET probe (typical for SSE initial handshake)
+      } catch (postErr) {
+        const causeMsg = (postErr as any)?.cause?.message || (postErr as any)?.cause?.code;
+        postErrorDetail = `${postErr instanceof Error ? postErr.message : 'POST failed'}${
+          causeMsg ? ` (${causeMsg})` : ''
+        }`;
       }
 
-      // If POST wasn't accepted or server is SSE GET endpoint:
-      if (!isJsonRpcSuccess) {
-        response = await fetch(targetUrl, {
-          method: 'GET',
-          headers: { ...fakeReq.headers, Accept: 'text/event-stream, application/json, */*' },
-          signal: AbortSignal.timeout(5000),
-        });
+      // If transport is 'sse' and POST handshake didn't succeed, fallback probe GET (typical for legacy SSE endpoints)
+      if (!isJsonRpcSuccess && transport === 'sse') {
+        try {
+          response = await fetch(targetUrl, {
+            method: 'GET',
+            headers: { ...fakeReq.headers, Accept: 'text/event-stream, application/json, */*' },
+            signal: AbortSignal.timeout(5000),
+          });
+        } catch (getErr) {
+          const causeMsg = (getErr as any)?.cause?.message || (getErr as any)?.cause?.code;
+          return {
+            success: false,
+            latencyMs: Date.now() - start,
+            message: `MCP connection failed [${targetUrl}]: ${
+              postErrorDetail || (getErr instanceof Error ? getErr.message : 'Network error')
+            }${causeMsg ? ` (${causeMsg})` : ''}`,
+          };
+        }
       }
 
       const latencyMs = Date.now() - start;
@@ -139,7 +184,7 @@ export const McpProvider: ConnectorProvider = {
         return {
           success: true,
           latencyMs,
-          statusCode: 200,
+          statusCode: response?.status ?? 200,
           message: `MCP Server initialized successfully${serverName ? ` (${serverName})` : ''}.`,
         };
       }
@@ -150,14 +195,19 @@ export const McpProvider: ConnectorProvider = {
         latencyMs,
         statusCode: response?.status,
         message: isHttpOk
-          ? `MCP endpoint connected (HTTP ${response?.status} OK, ready for SSE).`
-          : `MCP server responded with HTTP ${response?.status ?? 'Unknown'} ${response?.statusText || 'Error'}.`,
+          ? `MCP endpoint connected (HTTP ${response?.status} OK).`
+          : `MCP server error [${targetUrl}]: ${
+              postErrorDetail || `HTTP ${response?.status ?? 'Unknown'} ${response?.statusText || 'Error'}`
+            }`,
       };
     } catch (err) {
+      const causeMsg = (err as any)?.cause?.message || (err as any)?.cause?.code;
       return {
         success: false,
         latencyMs: Date.now() - start,
-        message: `MCP server test failed: ${err instanceof Error ? err.message : 'Network / timeout error'}`,
+        message: `MCP server test failed [${targetUrl}]: ${
+          err instanceof Error ? err.message : 'Network / timeout error'
+        }${causeMsg ? ` (${causeMsg})` : ''}`,
       };
     }
   },

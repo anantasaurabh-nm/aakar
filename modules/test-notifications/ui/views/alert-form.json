@@ -1,0 +1,178 @@
+{
+  "id": "alert-form",
+  "label": "Notification Dispatch Test",
+  "type": "form",
+  "toolbar": [
+    {
+      "id": "cancel",
+      "type": "action",
+      "label": "Cancel",
+      "action": { "type": "cancel" }
+    },
+    {
+      "id": "save",
+      "type": "action",
+      "label": "Save Alert",
+      "action": { "type": "submit" }
+    },
+    {
+      "id": "send-in-app",
+      "type": "action",
+      "label": "Send In-App",
+      "icon": "bell",
+      "action": {
+        "type": "submit",
+        "target": "notification.dispatch",
+        "params": { "channel": "in_app" }
+      }
+    },
+    {
+      "id": "send-push",
+      "type": "action",
+      "label": "Send Web Push",
+      "icon": "smartphone",
+      "action": {
+        "type": "submit",
+        "target": "notification.dispatch",
+        "params": { "channel": "push" }
+      }
+    },
+    {
+      "id": "send-email",
+      "type": "action",
+      "label": "Send Email",
+      "icon": "mail",
+      "action": {
+        "type": "submit",
+        "target": "notification.dispatch",
+        "params": { "channel": "email" }
+      }
+    },
+    {
+      "id": "send-whatsapp",
+      "type": "action",
+      "label": "Send WhatsApp",
+      "icon": "message-circle",
+      "action": {
+        "type": "submit",
+        "target": "notification.dispatch",
+        "params": { "channel": "whatsapp" }
+      }
+    },
+    {
+      "id": "send-sms",
+      "type": "action",
+      "label": "Send SMS",
+      "icon": "smartphone",
+      "action": {
+        "type": "submit",
+        "target": "notification.dispatch",
+        "params": { "channel": "sms" }
+      }
+    },
+    {
+      "id": "send-all",
+      "type": "action",
+      "label": "Send All Channels",
+      "icon": "send",
+      "action": {
+        "type": "submit",
+        "target": "notification.dispatch",
+        "params": { "channel": "all" }
+      }
+    }
+  ],
+  "config": {
+    "layout": {
+      "type": "grid",
+      "columns": 2,
+      "groups": [
+        {
+          "id": "group_content",
+          "title": "Notification Message",
+          "description": "Specify the title and detailed message body for notification delivery.",
+          "columns": 2,
+          "fields": ["title", "description"]
+        },
+        {
+          "id": "group_recipients",
+          "title": "Recipients & Delivery Channels",
+          "description": "Field values used to target specific users, email addresses, and phone numbers.",
+          "columns": 2,
+          "fields": ["assigned_to", "email", "phone"]
+        },
+        {
+          "id": "group_classification",
+          "title": "Urgency & Classification",
+          "description": "Priority flags and notification badge styling.",
+          "columns": 2,
+          "fields": ["priority", "type"]
+        }
+      ]
+    },
+    "fields": [
+      {
+        "name": "title",
+        "label": "Alert Title",
+        "type": "text",
+        "required": true,
+        "placeholder": "e.g. Critical Task Deadline or Security Update"
+      },
+      {
+        "name": "description",
+        "label": "Message / Description",
+        "type": "textarea",
+        "placeholder": "Enter the body content for the notification message..."
+      },
+      {
+        "name": "assigned_to",
+        "label": "In-App / Web Push Recipient (User)",
+        "type": "reference",
+        "entity": "core.user",
+        "displayField": "username",
+        "placeholder": "Select user for in-app and web push"
+      },
+      {
+        "name": "email",
+        "label": "Email Recipient",
+        "type": "text",
+        "placeholder": "user@example.com"
+      },
+      {
+        "name": "phone",
+        "label": "Phone Number (WhatsApp & SMS)",
+        "type": "text",
+        "placeholder": "+15551234567"
+      },
+      {
+        "name": "priority",
+        "label": "Priority",
+        "type": "select",
+        "defaultValue": "MEDIUM",
+        "options": [
+          { "label": "Low", "value": "LOW" },
+          { "label": "Medium", "value": "MEDIUM" },
+          { "label": "High", "value": "HIGH" },
+          { "label": "Urgent", "value": "URGENT" }
+        ]
+      },
+      {
+        "name": "type",
+        "label": "Notification Type",
+        "type": "select",
+        "defaultValue": "informational",
+        "options": [
+          { "label": "Informational", "value": "informational" },
+          { "label": "Action Required", "value": "action_required" },
+          { "label": "Warning", "value": "warning" },
+          { "label": "Success", "value": "success" },
+          { "label": "Error", "value": "error" }
+        ]
+      }
+    ],
+    "submitAction": {
+      "type": "submit",
+      "target": "test-notifications.alert.create"
+    }
+  }
+}

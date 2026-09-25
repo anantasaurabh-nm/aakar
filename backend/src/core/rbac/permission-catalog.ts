@@ -24,6 +24,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'ai.config.write',
     'connectors.read',
     'connectors.manage',
+    'notifications.read',
+    'notifications.manage',
+    'notifications.send',
   ],
   TENANT_ADMIN: [
     'user.read',
@@ -34,10 +37,13 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'module.manage',
     'connectors.read',
     'connectors.manage',
+    'notifications.read',
+    'notifications.manage',
+    'notifications.send',
   ],
-  MANAGER: ['user.read'],
-  STAFF: [],
-  VIEWER: ['user.read'],
+  MANAGER: ['user.read', 'notifications.read', 'notifications.send'],
+  STAFF: ['notifications.read', 'notifications.send'],
+  VIEWER: ['user.read', 'notifications.read'],
 };
 
 export const ALL_PERMISSIONS = Array.from(
