@@ -1,0 +1,354 @@
+================================================================================
+DoersOS (Aakar) - Server Deployment & Setup Guide
+================================================================================
+
+This guide provides step-by-step instructions to deploy DoersOS on:
+  1. Staging Server
+  2. Production Server
+
+--------------------------------------------------------------------------------
+TABLE OF CONTENTS
+--------------------------------------------------------------------------------
+1. Server Requirements & Prerequisites
+2. Initial Repository Setup
+3. Environment Configuration (.env files)
+4. Database Setup & Migrations
+5. Seeders & Initial Data
+6. Building Backend & Frontend
+7. Process Management (PM2)
+8. Nginx Reverse Proxy Configuration & SSL
+9. Staging Deployment Workflow
+10. Production Deployment Workflow
+11. Troubleshooting & Maintenance
+
+================================================================================
+1. SERVER REQUIREMENTS & PREREQUISITES
+================================================================================
+
+Ensure the server has the following installed:
+- OS: Ubuntu 22.04 LTS / Debian 12 / Linux
+- Node.js: >= 20.0.0 (Recommended: Node 20 LTS or 22 LTS via nvm / nodesource)
+- npm: >= 10.x
+- PostgreSQL: >= 14.x
+- Git
+- PM2 (Process Manager): npm install -g pm2
+- Nginx & Certbot (for SSL)
+
+Verify installations:
+  node -v
+  npm -v
+  psql --version
+  pm2 -v
+  nginx -v
+
+================================================================================
+2. INITIAL REPOSITORY SETUP
+================================================================================
+
+Clone the repository to your deployment directory (e.g. /var/www/doers-os):
+
+  cd /var/www
+  git clone git@github.com:anantasaurabh-nm/aakar.git doers-os
+  cd doers-os
+
+Install all workspace dependencies (root, backend, frontend, packages):
+  npm install
+
+Build the shared contracts package first:
+  npm run build:contracts
+
+================================================================================
+3. ENVIRONMENT CONFIGURATION (.env FILES)
+================================================================================
+
+Two environment files are required:
+
+----------------------------------------
+A. Backend Configuration (backend/.env)
+----------------------------------------
+Create or edit: backend/.env
+
+```env
+# Database Connection (PostgreSQL)
+DATABASE_URL="postgres://<DB_USER>:<DB_PASSWORD>@127.0.0.1:5432/<DB_NAME>"
+
+# JWT Authentication
+JWT_SECRET="<GENERATE_RANDOM_64_CHAR_SECRET_KEY>"
+JWT_EXPIRES_IN="8h"
+
+# Connector Credential Encryption (32-byte / 64-character hex string)
+CREDENTIAL_ENCRYPTION_KEY="<GENERATE_RANDOM_64_CHAR_HEX_KEY>"
+
+# Frontend URL (Used for CORS and auth redirects)
+FRONTEND_ORIGIN="https://your-domain.com"
+
+# Server Port
+PORT=4000
+
+# Environment Mode ('staging' | 'production' | 'development')
+NODE_ENV=production
+
+# Logging / Debugging
+LOG_AI_FLOW=false
+```
+
+Tip to generate secure random keys:
+  openssl rand -hex 32
+
+----------------------------------------
+B. Frontend Configuration (frontend/.env.local)
+----------------------------------------
+Create or edit: frontend/.env.local
+
+```env
+# Backend Internal/External API URL
+BACKEND_ORIGIN="http://127.0.0.1:4000"
+```
+
+================================================================================
+4. DATABASE SETUP & MIGRATIONS
+================================================================================
+
+1. Create PostgreSQL Database and User:
+  sudo -u postgres psql
+  CREATE DATABASE doers_os_prod;
+  CREATE USER usr_doers_os WITH ENCRYPTED PASSWORD 'YourStrongPasswordHere';
+  GRANT ALL PRIVILEGES ON DATABASE doers_os_prod TO usr_doers_os;
+  ALTER DATABASE doers_os_prod OWNER TO usr_doers_os;
+  \q
+
+2. Generate Prisma Client:
+  npm run prisma:generate
+
+3. Apply Database Migrations:
+  # For Staging / Production:
+  cd backend && npx prisma migrate deploy && cd ..
+
+================================================================================
+5. SEEDERS & INITIAL DATA
+================================================================================
+
+1. Run the Core System Seed:
+  npm run prisma:seed
+
+  This automatically creates:
+    - Default Tenant: "DoersOS" (slug: "doers-os")
+    - Default Roles: SUPER_ADMIN, TENANT_ADMIN, MANAGER, STAFF, VIEWER
+    - Permission Matrix mapping
+    - Default Super Admin & Demo Accounts:
+        Email: admin@doers-os.internal
+        Password: Password123!
+        (Other seeded users: elena.rostova@doers.io, marcus.vance@doers.io, sarah.connor@doers.io)
+
+2. Optional Lab / Staging Seeds:
+  If deploying to Staging and you wish to pre-populate Notification Lab / Test modules:
+    node scratch/seed-notification-lab.js
+
+================================================================================
+6. BUILDING BACKEND & FRONTEND
+================================================================================
+
+Build all workspace artifacts for production:
+
+1. Build Shared Contracts:
+  npm run build:contracts
+
+2. Build Backend (NestJS -> dist/):
+  npm run build:backend
+
+3. Build Frontend (Next.js -> .next/):
+  npm run build:frontend
+
+================================================================================
+7. PROCESS MANAGEMENT (PM2)
+================================================================================
+
+Use PM2 to run and auto-restart backend and frontend processes.
+
+Option A: Start via CLI commands:
+---------------------------------
+# Start Backend
+pm2 start "npm run start -w @erp/backend" --name "doers-os-backend"
+
+# Start Frontend
+pm2 start "npm run start -w @erp/frontend -- --port 3000" --name "doers-os-frontend"
+
+# Save PM2 state & enable startup on server reboot
+pm2 save
+pm2 startup
+
+Option B: Using PM2 Ecosystem File (ecosystem.config.js in project root):
+------------------------------------------------------------------------
+```javascript
+module.exports = {
+  apps: [
+    {
+      name: 'doers-os-backend',
+      cwd: './backend',
+      script: 'dist/src/main.js',
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      env: {
+        NODE_ENV: 'production',
+        PORT: 4000,
+      },
+    },
+    {
+      name: 'doers-os-frontend',
+      cwd: './frontend',
+      script: 'node_modules/next/dist/bin/next',
+      args: 'start -p 3000',
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      env: {
+        NODE_ENV: 'production',
+      },
+    },
+  ],
+};
+```
+Start using ecosystem file:
+  pm2 start ecosystem.config.js
+  pm2 save
+
+================================================================================
+8. NGINX REVERSE PROXY CONFIGURATION & SSL
+================================================================================
+
+Create Nginx site config: /etc/nginx/sites-available/doers-os.conf
+
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com; # Replace with your staging or production domain
+
+    # Frontend Next.js app
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Backend NestJS API
+    location /api/ {
+        proxy_pass http://127.0.0.1:4000/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+Enable site and configure SSL:
+  sudo ln -s /etc/nginx/sites-available/doers-os.conf /etc/nginx/sites-enabled/
+  sudo nginx -t
+  sudo systemctl reload nginx
+  sudo certbot --nginx -d your-domain.com
+
+================================================================================
+9. STEP-BY-STEP: STAGING DEPLOYMENT WORKFLOW
+================================================================================
+
+When deploying or updating Staging:
+
+1. SSH into Stage Server:
+   ssh user@stage-server-ip
+
+2. Navigate to project:
+   cd /var/www/doers-os
+
+3. Pull latest code from GitHub:
+   git pull origin main
+
+4. Install any new dependencies & build shared contracts:
+   npm install
+   npm run build:contracts
+
+5. Run database migrations:
+   cd backend && npx prisma migrate deploy && cd ..
+
+6. (Optional) Run seed updates if new modules/roles were added:
+   npm run prisma:seed
+
+7. Rebuild apps:
+   npm run build:backend
+   npm run build:frontend
+
+8. Restart PM2 processes:
+   pm2 restart doers-os-backend
+   pm2 restart doers-os-frontend
+
+9. Check status & logs:
+   pm2 status
+   pm2 logs --lines 50
+
+================================================================================
+10. STEP-BY-STEP: PRODUCTION DEPLOYMENT WORKFLOW
+================================================================================
+
+When deploying or updating Production (Zero-downtime / safe practices):
+
+1. SSH into Production Server:
+   ssh user@prod-server-ip
+
+2. Navigate to project:
+   cd /var/www/doers-os
+
+3. Backup PostgreSQL Database before deployment:
+   pg_dump -U usr_doers_os -h 127.0.0.1 doers_os_prod > ~/backup_$(date +%Y%m%d_%H%M%S).sql
+
+4. Pull release branch / tag:
+   git fetch origin
+   git checkout main   # or release tag: git checkout tags/v1.0.0
+   git pull origin main
+
+5. Install dependencies (frozen/clean):
+   npm install
+   npm run build:contracts
+
+6. Run schema migration:
+   cd backend && npx prisma migrate deploy && cd ..
+
+7. Rebuild production builds:
+   npm run build:backend
+   npm run build:frontend
+
+8. Reload PM2 processes gracefully:
+   pm2 reload doers-os-backend
+   pm2 reload doers-os-frontend
+
+9. Verify health:
+   curl -I http://127.0.0.1:4000/api/health (or visit your frontend URL)
+   pm2 status
+
+================================================================================
+11. TROUBLESHOOTING & MAINTENANCE
+================================================================================
+
+- View real-time logs:
+    pm2 logs doers-os-backend
+    pm2 logs doers-os-frontend
+
+- Check database connection:
+    cd backend && npx prisma db pull
+
+- Default Super Admin Credentials:
+    Email:    admin@doers-os.internal
+    Password: Password123!
+    (Remember to change the admin password immediately on production environments!)
+
+- Re-sync Module Schemas:
+    Restarting backend automatically scans and syncs JSON schemas located in /modules/*
+
+================================================================================
